@@ -27,16 +27,25 @@ wp eval 'var_dump( has_filter( "robots_txt", array( "Volusx_SEO_Fixes", "filter_
 define( 'VOLUSX_SEO_DISABLE', true );
 ```
 
-### فعال‌کردن ریدایرکت خوشهٔ تکراری hyomax → hyamax (اختیاری، پیش‌فرض خاموش)
+### ادغام خوشهٔ «Hyomax / Hyamax» (پیش‌فرض: روشن)
 
-در گزارش‌ها دو املای برند (`hyomax` و `hyamax`) هر دو وجود دارند و با هم رقابت می‌کنند.
-پس از اطمینان از اینکه کدام محصول «اصلی» است، این خط را به `wp-config.php` اضافه کنید:
+مدیر سایت تأیید کرد املای صحیح **Hyomax** است. بنابراین نسخه‌های `hyamax` که معادل Hyomax دارند با **۳۰۱** منتقل می‌شوند:
+
+| از | به |
+|---|---|
+| `/product/فیلر-hyamax-caha-lido/` | `/product/hyomax-caha/` |
+| `/product/hyamax-extra-deep-filler/` | `/product/hyomax-extra-deep/` |
+
+دو نکتهٔ مهم:
+
+1. **محافظ خودکار:** پیش از هر ریدایرکت بررسی می‌شود که مقصد واقعاً وجود داشته باشد (`url_to_postid`). اگر مقصد نبود، ریدایرکت انجام نمی‌شود و در `uploads/volusx-404.log` با برچسب `MISSING TARGET` ثبت می‌شود — تا هیچ‌وقت به Soft 404 تبدیل نشود.
+2. صفحات `/en/product/hyamax-*` **عمداً دست‌نخورده** مانده‌اند، چون برای خودشان نمایش دارند (مثلاً `hyamax-super-hydra` با ۲۹ نمایش و رتبهٔ ۹.۹۳). تغییر نام آن‌ها باید در یک مهاجرت جداگانه با ۳۰۱ کامل انجام شود.
+
+خاموش‌کردن این بخش:
 
 ```php
-define( 'VOLUSX_SEO_DUP_SLUG_MAP', true );
+add_filter( 'volusx_seo_enable_dup_slug_map', '__return_false' );
 ```
-
-تا وقتی این خط نباشد، هیچ ریدایرکتی از این خوشه اعمال نمی‌شود.
 
 ---
 

@@ -253,25 +253,30 @@
 
 > نیمهٔ اوت یک **رگرسیون** رخ داده (نه یک وضعیت پایدار). ارزش بررسی: آیا در آن تاریخ افزونه/قالب/فونت یا اسکریپت جدیدی اضافه شده است؟ اگر بله، همان تغییر مقصر اصلی است و برگرداندنش ممکن است کل مسئله را حل کند.
 
-### ۹-۳. خوشهٔ تکراری «hyomax / hyamax» — علت واقعی canonical تکراری
+### ۹-۳. خوشهٔ تکراری «Hyomax / Hyamax» — علت واقعی canonical تکراری
 
 گزارش‌های HTTPS (Valid) و Merchant listings فهرست URLها را دادند و دو املای متفاوت از یک برند در سایت وجود دارد:
 
-| نسخهٔ «hyomax» | نسخهٔ «hyamax» |
+| نسخهٔ «hyamax» (قدیمی) | نسخهٔ «hyomax» |
 |---|---|
-| `/product/hyomax-caha/` | `/product/فیلر-hyamax-caha-lido/` |
-| `/product/hyomax-extra-deep/` | `/product/hyamax-extra-deep-filler/` |
-| | `/product/فیلر-ولومایزر-هایومکس-hyamax-volumizer/` |
-| | `/en/product/hyamax-extra-deep/` |
-| | `/en/product/hyamax-volumizer-filler/` |
+| `/product/فیلر-hyamax-caha-lido/` | `/product/hyomax-caha/` |
+| `/product/hyamax-extra-deep-filler/` | `/product/hyomax-extra-deep/` |
+| `/product/فیلر-ولومایزر-هایومکس-hyamax-volumizer/` | — |
+| `/en/product/hyamax-extra-deep/` | — |
+| `/en/product/hyamax-volumizer-filler/` | — |
+| `/en/product/hyamax-super-hydra/` | — |
+| `/en/product/hyamax-hyav-filler/` | — |
+| `/en/product/hyamax-contour-filler/` | — |
 
-هر دو گروه در گزارش Google حضور دارند و برای یک کلیدواژه با هم رقابت می‌کنند (cannibalization). این دقیقاً توضیح می‌دهد چرا ۸ آدرس «Duplicate, Google chose different canonical» و ۱۵ آدرس «Alternate page with proper canonical» داریم.
+هر دو گروه در گزارش Google حضور دارند و برای یک کلیدواژه با هم رقابت می‌کنند (cannibalization). این توضیح می‌دهد چرا ۸ آدرس «Duplicate, Google chose different canonical» و ۱۵ آدرس «Alternate page with proper canonical» داریم.
 
-**اقدام:** یک املا canonical است و دیگری باید ۳۰۱ شود. پیشنهاد در بستهٔ ما به‌صورت **غیرفعال** و پشت یک کلید قرار داده شده تا فقط بعد از تأیید شما فعال شود:
+**تصمیم تأییدشده:** مدیر سایت اعلام کرد املای صحیح **Hyomax** است. بنابراین:
 
-```php
-define( 'VOLUSX_SEO_DUP_SLUG_MAP', true ); // در wp-config.php
-```
+- ✅ دو جفت مستقیم که مطمئناً یک محصول‌اند، **از الان با ۳۰۱** به Hyomax منتقل می‌شوند (در بسته فعال شد، پیش‌فرض روشن).
+- ⛔ صفحات `/en/product/hyamax-*` **دست‌نخورده** ماندند، چون برای خودشان نمایش و رتبه دارند (`hyamax-super-hydra`: ۲۹ نمایش، رتبهٔ ۹.۹۳؛ `hyamax-volumizer-filler`: ۱۶ نمایش). ریدایرکت آن‌ها به صفحهٔ فارسی، همان نمایش را از بین می‌برد.
+- 📋 مهاجرت کامل (تغییر نام باقی محصولات `hyamax` → `hyomax` + ۳۰۱ همهٔ آدرس‌های قدیمی) کار جداگانه‌ای است که در برنامهٔ هفتهٔ ۲ قرار گرفت.
+
+**محافظ فنی:** بسته پیش از هر ریدایرکت بررسی می‌کند مقصد واقعاً وجود دارد؛ اگر نبود، ریدایرکت انجام نمی‌شود و در لاگ با برچسب `MISSING TARGET` ثبت می‌شود تا هیچ صفحه‌ای به Soft 404 تبدیل نشود.
 
 ### ۹-۴. Merchant listings: «Item name» برای همه N/A است
 
@@ -302,7 +307,7 @@ define( 'VOLUSX_SEO_DUP_SLUG_MAP', true ); // در wp-config.php
 | رتبه | اقدام | چرا اولویت تغییر کرد |
 |---|---|---|
 | ۱ | `force_https` + بستهٔ اصلاحات | باگ مشخص و قطعی (http در ایندکس) |
-| ۲ | ادغام خوشهٔ hyomax/hyamax | علت ریشه‌ای canonical تکراری پیدا شد |
+| ۲ | ادغام خوشهٔ Hyomax/Hyamax (تأییدشده: Hyomax) | علت ریشه‌ای canonical تکراری پیدا شد |
 | ۳ | تکمیل `name`/`image` در Product schema | Merchant listings عملاً مرده است |
 | ۴ | بازنویسی title/description صفحات `/en/` پرمایش | ۳۸۲ نمایش AI + ۶۷۰ نمایش عادی روی همین صفحات |
 | ۵ | یافتن رگرسیون نیمهٔ اوت (CWV) | Good = ۰ در کل سایت |

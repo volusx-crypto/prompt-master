@@ -390,10 +390,28 @@ final class Volusx_SEO_Fixes {
 
 		$path = untrailingslashit( $path );
 
+		// اسلاگ‌های فارسی در REQUEST_URI به‌صورت percent-encoded هستند
+		// (%D9%81%DB%8C...). برای تطبیق با کلیدهای نقشه باید decode شوند،
+		// وگرنه ریدایرکت هیچ‌وقت پیدا نمی‌شود.
+		$decoded = rawurldecode( $path );
+
 		$map = self::redirect_map();
-		if ( isset( $map[ $path ] ) ) {
-			wp_safe_redirect( $map[ $path ], 301 );
-			exit;
+		foreach ( array( $decoded, $path ) as $candidate ) {
+			if ( ! isset( $map[ $candidate ] ) ) {
+				continue;
+			}
+
+			$target = $map[ $candidate ];
+
+			// اگر مقصد وجود نداشته باشد، ریدایرکت به یک ۴۰۴ دیگر (= Soft 404)
+			// بدتر از نبودن ریدایرکت است. پس اول بررسی می‌کنیم.
+			if ( self::redirect_target_exists( $target ) ) {
+				wp_safe_redirect( $target, 301 );
+				exit;
+			}
+
+			self::log_404( $decoded . ' => MISSING TARGET ' . $target );
+			return;
 		}
 
 		// اگر محصولی حذف شده باشد، به فروشگاه برگرد (فقط اگر صراحتاً فعال شود).
@@ -408,6 +426,32 @@ final class Volusx_SEO_Fixes {
 	}
 
 	/**
+	 * آیا مقصد ریدایرکت واقعاً وجود دارد؟
+	 * برای دامنهٔ خارجی قابل بررسی نیست، پس فرض می‌کنیم معتبر است.
+	 *
+	 * @param string $url
+	 * @return bool
+	 */
+	private static function redirect_target_exists( $url ) {
+		if ( ! is_string( $url ) || '' === $url ) {
+			return false;
+		}
+
+		$home_host = strtolower( (string) wp_parse_url( home_url(), PHP_URL_HOST ) );
+		$host      = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+
+		if ( $home_host && $host && $home_host !== $host ) {
+			return true;
+		}
+
+		if ( ! function_exists( 'url_to_postid' ) ) {
+			return true;
+		}
+
+		return url_to_postid( $url ) > 0;
+	}
+
+	/**
 	 * نقشه ریدایرکت ۴۰۴ها: کلید = مسیر قدیمی، مقدار = آدرس مقصد (کامل با https).
 	 *
 	 * @return array<string,string>
@@ -419,14 +463,26 @@ final class Volusx_SEO_Fixes {
 			// '/category/old'              => 'https://volusx.com/product-category/filler/',
 		);
 
-		// ریدایرکت‌های پیشنهادی برای خوشهٔ تکراری «hyomax / hyamax».
-		// این دو املای برند در گزارش HTTPS و Merchant listings هر دو وجود دارند و
-		// باعث رقابت دو صفحه با یکدیگر (cannibalization) می‌شوند.
-		// ⚠️ فقط پس از تأیید مدیر سایت فعال شود:
-		//    define( 'VOLUSX_SEO_DUP_SLUG_MAP', true );
-		if ( defined( 'VOLUSX_SEO_DUP_SLUG_MAP' ) && VOLUSX_SEO_DUP_SLUG_MAP ) {
-			$map['/product/hyomax-caha']       = 'https://volusx.com/product/فیلر-hyamax-caha-lido/';
-			$map['/product/hyomax-extra-deep'] = 'https://volusx.com/product/hyamax-extra-deep-filler/';
+		// ادغام خوشهٔ «Hyomax / Hyamax».
+		// مدیر سایت تأیید کرد که املای صحیح و canonical «Hyomax» است، بنابراین
+		// همهٔ نسخه‌های «hyamax» که معادل Hyomax دارند با ۳۰۱ به Hyomax منتقل می‌شوند.
+		//
+		// فقط جفت‌هایی اینجا هستند که هر دو طرفشان مطمئناً یک محصول‌اند.
+		// صفحات /en/ که برای خودشان نمایش دارند (مثل /en/product/hyamax-super-hydra/)
+		// عمداً دست‌نخورده مانده‌اند؛ تغییر نام آن‌ها یک مهاجرت جداگانه با ۳۰۱ است.
+		$dup_slug_map = array(
+			'/product/فیلر-hyamax-caha-lido'    => '/product/hyomax-caha/',
+			'/product/hyamax-extra-deep-filler' => '/product/hyomax-extra-deep/',
+		);
+
+		/**
+		 * خاموش‌کردن ادغام Hyomax/Hyamax (پیش‌فرض: روشن).
+		 * add_filter( 'volusx_seo_enable_dup_slug_map', '__return_false' );
+		 */
+		if ( apply_filters( 'volusx_seo_enable_dup_slug_map', true ) ) {
+			foreach ( $dup_slug_map as $from => $to ) {
+				$map[ $from ] = home_url( $to );
+			}
 		}
 
 		/**
