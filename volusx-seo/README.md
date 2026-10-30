@@ -160,3 +160,57 @@ curl -sI https://volusx.com/product/reyoungel-revital/ | grep -i 'link.*preload'
 | `volusx-seo-fixes.php` | خودِ افزونه (mu-plugin) |
 | `robots.txt` | نسخهٔ پیشنهادی کامل robots.txt (اگر افزونهٔ SEO سایت شما آن را تولید نمی‌کند) |
 | `../SEO-REPORT-volusx-2026-10-30.md` | گزارش کامل تحلیل و اولویت‌بندی |
+
+---
+
+## ۶. سه روش نصب (وقتی دسترسی مستقیم به سرور ندارید)
+
+سندباکس من به `volusx.com` دسترسی شبکه‌ای ندارد (فایروال، handshake را قطع می‌کند)،
+پس آپلود نهایی باید از سمت شما انجام شود. هر سه روش زیر نتیجهٔ یکسان می‌دهند.
+
+### روش ۱ — SFTP / File Manager (مطمئن‌ترین، ~۶۰ ثانیه)
+
+1. فایل `volusx-seo-fixes.php` را از مخزن بردارید:
+   `https://raw.githubusercontent.com/volusx-crypto/prompt-master/arena/2466cef9-prompt-master/volusx-seo/volusx-seo-fixes.php`
+2. آن را در `wp-content/mu-plugins/` آپلود کنید (پوشه را اگر نیست بسازید).
+3. تمام. تأیید: `https://volusx.com/robots.txt` را باز کنید و بلوک `# BEGIN Volusx SEO` را ببینید.
+
+### روش ۲ — WP-CLI
+
+```bash
+cd /path/to/wordpress
+mkdir -p wp-content/mu-plugins
+curl -fsSL -o wp-content/mu-plugins/volusx-seo-fixes.php \
+  https://raw.githubusercontent.com/volusx-crypto/prompt-master/arena/2466cef9-prompt-master/volusx-seo/volusx-seo-fixes.php
+wp plugin list --status=must-use
+```
+
+### روش ۳ — از داخل وردپرس (Novamira / Code Snippets)
+
+فایل `deploy/install.php` را با ابزار «execute PHP» اجرا کنید. خودش فایل را دانلود،
+اعتبارسنجی و نصب می‌کند و در صورت شکست، دلیل دقیق را می‌گوید.
+
+> محدودیت شناخته‌شده: Novamira نوشتن فایل جدید را به یک پوشهٔ sandbox محدود می‌کند؛
+> اگر پیام «نوشتن فایل ممکن نشد» گرفتید، یعنی sandbox اجازه نداده — از روش ۱ استفاده کنید.
+
+### تست پس از نصب
+
+اسکریپت `deploy/verify.sh` را روی سیستم خودتان اجرا کنید (به سایت دسترسی دارد):
+
+```bash
+bash volusx-seo/deploy/verify.sh https://volusx.com "/product/reyoungel-revital/"
+```
+
+هفت گروه بررسی می‌کند: robots.txt، ریدایرکت https، noindex، `offers`، ارز IRR،
+`aggregateRating` صفر، preload تصویر LCP، و ریدایرکت‌های Hyomax.
+
+---
+
+## ۷. نکتهٔ امنیتی
+
+Application Password که برای اتصال MCP ساخته می‌شود، **دسترسی کامل مدیریتی** به سایت می‌دهد.
+پس از پایان کار:
+
+1. در `wp-admin → Users → Profile → Application Passwords` آن را **Revoke** کنید.
+2. از پست‌کردن آن در چت/ Issue خودداری کنید؛ هر کسی که آن رشته را ببیند می‌تواند
+   محصولات، سفارش‌ها و تنظیمات سایت را تغییر دهد.
