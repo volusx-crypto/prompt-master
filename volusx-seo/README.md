@@ -27,6 +27,17 @@ wp eval 'var_dump( has_filter( "robots_txt", array( "Volusx_SEO_Fixes", "filter_
 define( 'VOLUSX_SEO_DISABLE', true );
 ```
 
+### فعال‌کردن ریدایرکت خوشهٔ تکراری hyomax → hyamax (اختیاری، پیش‌فرض خاموش)
+
+در گزارش‌ها دو املای برند (`hyomax` و `hyamax`) هر دو وجود دارند و با هم رقابت می‌کنند.
+پس از اطمینان از اینکه کدام محصول «اصلی» است، این خط را به `wp-config.php` اضافه کنید:
+
+```php
+define( 'VOLUSX_SEO_DUP_SLUG_MAP', true );
+```
+
+تا وقتی این خط نباشد، هیچ ریدایرکتی از این خوشه اعمال نمی‌شود.
+
 ---
 
 ## ۲. هر بخش چه کاری می‌کند و کدام مشکل Search Console را می‌بندد
@@ -39,6 +50,8 @@ define( 'VOLUSX_SEO_DISABLE', true );
 | `normalize_duplicate_urls` | Page with redirect / URLهای تکراری | ۱۷ | پارامترهای تبلیغاتی (`utm_*`، `fbclid`، `gclid`، …) را با **301** به URL تمیز منتقل می‌کند |
 | `handle_404` | Not found (404) | ۳ | نقشهٔ ریدایرکت ۳۰۱ + ثبت خودکار هر ۴۰۴ در لاگ تا نقشه کامل شود |
 | `filter_product_schema` | Product snippets: «Either offers, review, or aggregateRating should be specified» | **۴۶ (بحرانی)** | اگر `offers` نبود از خود محصول می‌سازد (Offer یا AggregateOffer برای محصولات متغیر)، ارز را به کد ISO استاندارد (`IRR`) تبدیل می‌کند، و `aggregateRating` بی‌اعتبار (reviewCount صفر) را حذف می‌کند |
+| `ensure_product_core_fields` | Merchant listings: «Item name = N/A» برای همهٔ ۸ آیتم | ۸ | `name`، `image`، `brand` و `description` را در ساختار Product تکمیل می‌کند |
+| `force_https` | آدرس `http://volusx.com/en/shop/` در گزارش Generative AI | ۱+ | هر درخواست HTTP را با ۳۰۱ به HTTPS منتقل می‌کند (با پشتیبانی از پروکسی/CDN) |
 | `preload_lcp_image` + `lcp_image_attributes` | Core Web Vitals: LCP > 4s (mobile) | ۶۶ | تصویر شاخص محصول را preload و `fetchpriority="high"` + `loading="eager"` می‌کند |
 
 ---

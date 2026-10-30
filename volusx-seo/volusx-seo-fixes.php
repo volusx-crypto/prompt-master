@@ -78,7 +78,10 @@ final class Volusx_SEO_Fixes {
 		// ۴) رفع «Not found (404)» با نقشه ریدایرکت + لاگ ۴۰۴های جدید.
 		add_action( 'template_redirect', array( __CLASS__, 'handle_404' ), 2 );
 
-		// ۵) رفع «Product snippets: offers / review / aggregateRating».
+		// ۷) اجبار HTTPS (آدرس‌های http:// در گزارش‌ها دیده شد).
+		add_action( 'template_redirect', array( __CLASS__, 'force_https' ), 0 );
+
+		// ۵) رفع «Product snippets: offers / review / aggregateRating» + فیلدهای Merchant listings.
 		add_filter( 'woocommerce_structured_data_product', array( __CLASS__, 'filter_product_schema' ), 20, 2 );
 
 		// ۶) بهبود LCP موبایل (۶۶ آدرس با LCP > 4s).
@@ -301,6 +304,76 @@ final class Volusx_SEO_Fixes {
 	}
 
 	/* ---------------------------------------------------------------------
+	 * ۷) اجبار HTTPS
+	 * ------------------------------------------------------------------ */
+
+	/**
+	 * هر درخواست HTTP را با 301 به HTTPS منتقل می‌کند.
+	 * در گزارش Generative AI Features آدرس http://volusx.com/en/shop/ دیده شد
+	 * که یعنی نسخهٔ ناامن هنوز در دسترس و ایندکس‌پذیر است.
+	 *
+	 * اگر سایت پشت Cloudflare/پروکسی است، هدر X-Forwarded-Proto هم بررسی می‌شود
+	 * تا حلقهٔ ریدایرکت ایجاد نشود.
+	 */
+	public static function force_https() {
+		if ( is_admin() ) {
+			return;
+		}
+		if ( function_exists( 'wp_doing_ajax' ) && wp_doing_ajax() ) {
+			return;
+		}
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return;
+		}
+
+		$enabled = (bool) apply_filters( 'volusx_seo_force_https', true );
+		if ( ! $enabled ) {
+			return;
+		}
+
+		if ( self::is_request_https() ) {
+			return;
+		}
+
+		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'GET' !== strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) ) {
+			return;
+		}
+
+		$host = isset( $_SERVER['HTTP_HOST'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ) ) : '';
+		if ( ! $host ) {
+			$host = (string) wp_parse_url( home_url(), PHP_URL_HOST );
+		}
+		if ( ! $host ) {
+			return;
+		}
+
+		$uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+		wp_safe_redirect( 'https://' . $host . $uri, 301 );
+		exit;
+	}
+
+	/** تشخیص HTTPS با در نظر گرفتن پروکسی/CDN. */
+	private static function is_request_https() {
+		if ( function_exists( 'is_ssl' ) && is_ssl() ) {
+			return true;
+		}
+
+		if ( ! empty( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) {
+			$proto = strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_FORWARDED_PROTO'] ) ) );
+			if ( 'https' === $proto ) {
+				return true;
+			}
+		}
+
+		if ( ! empty( $_SERVER['HTTP_FRONT_END_HTTPS'] ) && 'on' === strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_FRONT_END_HTTPS'] ) ) ) ) {
+			return true;
+		}
+
+		return false;
+	}
+
+	/* ---------------------------------------------------------------------
 	 * ۴) 404 → 301
 	 * ------------------------------------------------------------------ */
 
@@ -343,9 +416,18 @@ final class Volusx_SEO_Fixes {
 		$map = array(
 			// نمونه‌ها — مسیرهای واقعی را از Search Console → Page indexing → Not found (404) بردارید:
 			// '/old-product-slug'          => 'https://volusx.com/product/new-product-slug/',
-			// '/product/hyamax-old-name'   => 'https://volusx.com/product/hyamax-extra-deep-filler/',
 			// '/category/old'              => 'https://volusx.com/product-category/filler/',
 		);
+
+		// ریدایرکت‌های پیشنهادی برای خوشهٔ تکراری «hyomax / hyamax».
+		// این دو املای برند در گزارش HTTPS و Merchant listings هر دو وجود دارند و
+		// باعث رقابت دو صفحه با یکدیگر (cannibalization) می‌شوند.
+		// ⚠️ فقط پس از تأیید مدیر سایت فعال شود:
+		//    define( 'VOLUSX_SEO_DUP_SLUG_MAP', true );
+		if ( defined( 'VOLUSX_SEO_DUP_SLUG_MAP' ) && VOLUSX_SEO_DUP_SLUG_MAP ) {
+			$map['/product/hyomax-caha']       = 'https://volusx.com/product/فیلر-hyamax-caha-lido/';
+			$map['/product/hyomax-extra-deep'] = 'https://volusx.com/product/hyamax-extra-deep-filler/';
+		}
 
 		/**
 		 * @param array<string,string> $map
@@ -433,6 +515,68 @@ final class Volusx_SEO_Fixes {
 		// ۵-۴) آرایه‌های خالی review حذف شوند.
 		if ( isset( $markup['review'] ) && empty( $markup['review'] ) ) {
 			unset( $markup['review'] );
+		}
+
+		// ۵-۵) فیلدهای لازم برای نمایش در Merchant listings
+		// (در گزارش Google، «Item name» برای همهٔ آیتم‌ها N/A بود).
+		if ( is_object( $product ) && method_exists( $product, 'get_id' ) ) {
+			$markup = self::ensure_product_core_fields( $markup, $product );
+		}
+
+		return $markup;
+	}
+
+	/**
+	 * تکمیل name / image / brand در ساختار Product.
+	 *
+	 * @param array      $markup
+	 * @param WC_Product $product
+	 * @return array
+	 */
+	private static function ensure_product_core_fields( $markup, $product ) {
+		// name
+		if ( empty( $markup['name'] ) && method_exists( $product, 'get_name' ) ) {
+			$name = wp_strip_all_tags( (string) $product->get_name() );
+			if ( '' !== $name ) {
+				$markup['name'] = $name;
+			}
+		}
+
+		// image
+		if ( empty( $markup['image'] ) ) {
+			$image_id = method_exists( $product, 'get_image_id' ) ? (int) $product->get_image_id() : 0;
+			if ( $image_id ) {
+				$src = wp_get_attachment_image_src( $image_id, 'woocommerce_single' );
+				if ( ! empty( $src[0] ) ) {
+					$markup['image'] = $src[0];
+				}
+			}
+		}
+
+		// brand — فقط اگر واقعاً تعریف شده باشد (برند ساختگی ساخته نمی‌شود).
+		if ( empty( $markup['brand'] ) ) {
+			$brand = '';
+			if ( method_exists( $product, 'get_attribute' ) ) {
+				$brand = (string) $product->get_attribute( 'brand' );
+				if ( '' === $brand ) {
+					$brand = (string) $product->get_attribute( 'pa_brand' );
+				}
+			}
+			$brand = trim( wp_strip_all_tags( $brand ) );
+			if ( '' !== $brand ) {
+				$markup['brand'] = array(
+					'@type' => 'Brand',
+					'name'  => $brand,
+				);
+			}
+		}
+
+		// description
+		if ( empty( $markup['description'] ) && method_exists( $product, 'get_short_description' ) ) {
+			$desc = trim( wp_strip_all_tags( (string) $product->get_short_description() ) );
+			if ( '' !== $desc ) {
+				$markup['description'] = $desc;
+			}
 		}
 
 		return $markup;
