@@ -1,0 +1,33 @@
+# robots.txt پیشنهادی — volusx.com
+# توجه: اگر Yoast/Rank Math فعال است، robots.txt از داخل افزونه تولید می‌شود
+# و این فایل فقط مرجع است. mu-plugin همراه، همین قواعد را به نسخهٔ افزونه اضافه می‌کند.
+
+User-agent: *
+Allow: /
+
+# --- منابع ضروری برای رندر صحیح صفحه ---
+Allow: /wp-content/uploads/
+Allow: /wp-admin/admin-ajax.php
+Allow: /.well-known/
+
+# --- نسخه انگلیسی باید قابل خزش و ایندکس باشد ---
+Allow: /en/
+
+# --- صفحاتی که نباید در نتایج جستجو بیایند ---
+Disallow: /cart/
+Disallow: /checkout/
+Disallow: /my-account/
+Disallow: /wp-admin/
+Disallow: /*?add-to-cart=
+Disallow: /*?orderby=
+Disallow: /*?filter_
+Disallow: /*?rating_filter=
+Disallow: /*?min_price=
+Disallow: /*?s=
+Disallow: /*?replytocom=
+Disallow: /author/
+Disallow: /search/
+
+# --- نقشه سایت ---
+Sitemap: https://volusx.com/sitemap_index.xml
+Sitemap: https://volusx.com/wp-sitemap.xml
