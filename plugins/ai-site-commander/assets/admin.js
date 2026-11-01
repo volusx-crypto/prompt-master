@@ -112,7 +112,7 @@
 	});
 
 	$(document).on('click', '#asc-btn-auto-config-autolinks', function () {
-		var $btn = $(this).prop('disabled', true).text('در حال اعمال تنظیمات بهینه...');
+		var $btn = $(this).prop('disabled', true).text('در حال اعمال تنظیمات و ساخت لینک‌های داخلی...');
 		postAction({
 			sub_action: 'configure_autolinks'
 		}, function (data) {
@@ -121,7 +121,21 @@
 				(data.message || 'تنظیمات بهینه با موفقیت ذخیره شد.') +
 				'</div>'
 			);
-			$btn.prop('disabled', false).text('اعمال خودکار بهترین تنظیمات سئوی فارسی روی Autolinks Manager (همراه با Snapshot)');
+			setTimeout(function () { window.location.reload(); }, 1200);
+		});
+	});
+
+	$(document).on('click', '#asc-btn-sync-bridge', function () {
+		var $btn = $(this).prop('disabled', true).text('در حال تبادل زنده با چت هوش مصنوعی...');
+		postAction({
+			sub_action: 'sync_cloud_bridge'
+		}, function (data) {
+			$('#asc-bridge-sync-result').html(
+				'<div style="padding:10px;background:#dcfce7;color:#166534;border-radius:8px;font-weight:700;">✓ ' +
+				(data.message || 'همگام‌سازی ابری با موفقیت انجام شد.') +
+				'</div>'
+			);
+			$btn.prop('disabled', false).text('همگام‌سازی فوری با چت هوش مصنوعی (Sync Now)');
 		});
 	});
 })(jQuery);

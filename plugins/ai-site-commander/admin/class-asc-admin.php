@@ -92,9 +92,11 @@ class ASC_Admin {
 			'enable_redirects'     => ! empty( $_POST['enable_redirects'] ) ? 1 : 0,
 			'enable_snippets'      => ! empty( $_POST['enable_snippets'] ) ? 1 : 0,
 			'enable_theme_editor'  => ! empty( $_POST['enable_theme_editor'] ) ? 1 : 0,
-			'enable_native_seo'    => ! empty( $_POST['enable_native_seo'] ) ? 1 : 0,
-			'safe_mode_token'      => $current['safe_mode_token'],
-			'custom_robots_append' => isset( $_POST['custom_robots_append'] ) ? sanitize_textarea_field( wp_unslash( $_POST['custom_robots_append'] ) ) : '',
+			'enable_native_seo'     => ! empty( $_POST['enable_native_seo'] ) ? 1 : 0,
+			'safe_mode_token'       => $current['safe_mode_token'],
+			'custom_robots_append'  => isset( $_POST['custom_robots_append'] ) ? sanitize_textarea_field( wp_unslash( $_POST['custom_robots_append'] ) ) : '',
+			'enable_cloud_bridge'   => isset( $_POST['enable_cloud_bridge'] ) ? 1 : ( isset( $_POST['bridge_spreadsheet_id'] ) ? 0 : (int) $current['enable_cloud_bridge'] ),
+			'bridge_spreadsheet_id' => isset( $_POST['bridge_spreadsheet_id'] ) ? sanitize_text_field( wp_unslash( $_POST['bridge_spreadsheet_id'] ) ) : $current['bridge_spreadsheet_id'],
 		);
 
 		update_option( 'asc_settings', $updated );
@@ -192,7 +194,15 @@ class ASC_Admin {
 				break;
 
 			case 'configure_autolinks':
-				$res = ASC_Plugin_Inspector::auto_configure_autolinks_manager( 'wp-admin:' . wp_get_current_user()->user_login );
+				$res = ASC_Plugin_Inspector::auto_configure_autolinks_manager( 'wp-admin:' . wp_get_current_user()->user_login, true );
+				if ( is_wp_error( $res ) ) {
+					wp_send_json_error( array( 'message' => $res->get_error_message() ), 400 );
+				}
+				wp_send_json_success( $res );
+				break;
+
+			case 'sync_cloud_bridge':
+				$res = ASC_Cloud_Bridge::sync_now();
 				if ( is_wp_error( $res ) ) {
 					wp_send_json_error( array( 'message' => $res->get_error_message() ), 400 );
 				}
@@ -279,6 +289,40 @@ class ASC_Admin {
 							<div class="asc-stat-value"><?php echo esc_html( $status['counts']['redirects'] . ' / ' . $status['counts']['unresolved_404s'] ); ?></div>
 							<div class="asc-stat-sub">ریدایرکت فعال / ۴۰۴ حل‌نشده</div>
 						</div>
+					</div>
+
+					<?php
+					$bridge_status = get_option( 'asc_bridge_status', array() );
+					$sa_email      = ASC_Cloud_Bridge::get_service_account_email();
+					$sheet_id      = ASC_Cloud_Bridge::get_spreadsheet_id();
+					?>
+					<div class="asc-box" style="margin:18px 0;border-right:4px solid #2563eb;">
+						<h3 style="margin-top:0;">پل ارتباطی زنده دوطرفه با چت هوش مصنوعی (Volusx AI Live Bridge)</h3>
+						<p style="margin:6px 0;">
+							این پل به هوش مصنوعی اجازه می‌دهد دستورات سئو، لینک‌سازی، اصلاح سرچ کنسول و مدیریت سایت را مستقیماً روی <code>volusx.com</code> اجرا کند و گزارش زنده را بخواند.
+						</p>
+						<p style="margin:6px 0;">
+							<strong>گوگل شیت متصل:</strong>
+							<a href="<?php echo esc_url( 'https://docs.google.com/spreadsheets/d/' . $sheet_id . '/edit' ); ?>" target="_blank" rel="noopener noreferrer" dir="ltr">
+								<code><?php echo esc_html( $sheet_id ); ?></code>
+							</a>
+						</p>
+						<?php if ( '' !== $sa_email ) : ?>
+							<p style="margin:6px 0;">
+								<strong>ایمیل اکانت سرویس شناسایی‌شده از سایت شما:</strong>
+								<input type="text" readonly class="regular-text code" dir="ltr" value="<?php echo esc_attr( $sa_email ); ?>" onclick="this.select();" style="width:380px;" />
+								<span style="font-size:12px;color:#475569;">(کافی است این ایمیل را در چت بفرستید تا گوگل شیت به صورت خودکار با آن به اشتراک گذاشته شود!)</span>
+							</p>
+						<?php endif; ?>
+						<?php if ( ! empty( $bridge_status['message'] ) ) : ?>
+							<p style="margin:6px 0;font-weight:700;color:<?php echo ! empty( $bridge_status['ok'] ) ? '#15803d' : '#b45309'; ?>;">
+								آخرین وضعیت پل ابری: <?php echo esc_html( $bridge_status['message'] ); ?>
+							</p>
+						<?php endif; ?>
+						<p style="margin:10px 0 0;">
+							<button type="button" class="button button-primary" id="asc-btn-sync-bridge">همگام‌سازی فوری با چت هوش مصنوعی (Sync Now)</button>
+						</p>
+						<div id="asc-bridge-sync-result" style="margin-top:8px;"></div>
 					</div>
 
 					<h3>آخرین عملیات ثبت‌شده (Audit Log)</h3>
@@ -646,6 +690,16 @@ class ASC_Admin {
 								</td>
 							</tr>
 							<tr>
+								<th scope="row">پل ارتباطی ابری (Google Sheets Bridge)</th>
+								<td>
+									<label style="display:block;margin-bottom:8px;">
+										<input type="checkbox" name="enable_cloud_bridge" value="1" <?php checked( ! empty( $settings['enable_cloud_bridge'] ) ); ?> />
+										فعال‌سازی اجرای خودکار دستورات چت هوش مصنوعی از طریق Google Sheets
+									</label>
+									<input type="text" name="bridge_spreadsheet_id" value="<?php echo esc_attr( $settings['bridge_spreadsheet_id'] ); ?>" class="regular-text code" dir="ltr" placeholder="Spreadsheet ID" />
+								</td>
+							</tr>
+							<tr>
 								<th scope="row">قوانین سفارشی انتهای <code>robots.txt</code></th>
 								<td>
 									<textarea name="custom_robots_append" rows="4" class="large-text code" dir="ltr" placeholder="Disallow: /search/"><?php echo esc_textarea( $settings['custom_robots_append'] ); ?></textarea>
@@ -684,10 +738,34 @@ class ASC_Admin {
 
 							<p style="margin-top:16px;">
 								<button type="button" class="button button-primary" id="asc-btn-auto-config-autolinks">
-									اعمال خودکار بهترین تنظیمات سئوی فارسی روی Autolinks Manager (همراه با Snapshot)
+									اعمال مجدد تنظیمات بهینه + قوانین لینک داخلی هدفمند در Autolinks Manager (همراه با Snapshot)
 								</button>
 							</p>
 							<div id="asc-autolinks-config-result" style="margin-top:10px;"></div>
+
+							<?php if ( ! empty( $audit['autolinks_rules'] ) ) : ?>
+								<h4 style="margin-top:18px;">قوانین فعال فعلی در جدول Autolinks Manager (<?php echo (int) $audit['autolinks_rules_count']; ?> مورد)</h4>
+								<table class="widefat striped" style="font-size:12px;">
+									<thead>
+										<tr>
+											<th>کلمه کلیدی (Anchor)</th>
+											<th>آدرس مقصد</th>
+											<th>اولویت</th>
+											<th>سقف</th>
+										</tr>
+									</thead>
+									<tbody>
+										<?php foreach ( array_slice( $audit['autolinks_rules'], 0, 25 ) as $al_row ) : ?>
+											<tr>
+												<td><strong><?php echo esc_html( isset( $al_row['keyword'] ) ? $al_row['keyword'] : '' ); ?></strong></td>
+												<td dir="ltr" style="font-size:11px;"><code><?php echo esc_html( rawurldecode( isset( $al_row['url'] ) ? $al_row['url'] : '' ) ); ?></code></td>
+												<td><?php echo esc_html( isset( $al_row['priority'] ) ? (string) $al_row['priority'] : '' ); ?></td>
+												<td><?php echo esc_html( isset( $al_row['limit'] ) ? (string) $al_row['limit'] : '' ); ?></td>
+											</tr>
+										<?php endforeach; ?>
+									</tbody>
+								</table>
+							<?php endif; ?>
 						</div>
 
 						<div class="asc-box">

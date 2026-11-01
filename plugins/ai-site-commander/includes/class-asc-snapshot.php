@@ -267,6 +267,23 @@ class ASC_Snapshot {
 				}
 				break;
 
+			case 'autolinks_seed':
+				$after_raw = $wpdb->get_var(
+					$wpdb->prepare(
+						'SELECT after_state FROM ' . ASC_DB::table( 'snapshots' ) . ' WHERE id = %d',
+						absint( $snapshot_id )
+					)
+				);
+				$after     = json_decode( (string) $after_raw, true );
+				$table     = isset( $before['table'] ) ? preg_replace( '/[^a-zA-Z0-9_]/', '', (string) $before['table'] ) : $wpdb->prefix . 'daextam_autolink';
+				if ( ! empty( $after['inserted_ids'] ) && is_array( $after['inserted_ids'] ) && '' !== $table ) {
+					foreach ( $after['inserted_ids'] as $al_id ) {
+						$wpdb->delete( $table, array( 'autolink_id' => absint( $al_id ) ), array( '%d' ) );
+					}
+				}
+				ASC_Engine::purge_site_caches();
+				break;
+
 			default:
 				return new WP_Error( 'asc_unsupported_rollback', 'نوع هدف برای بازگردانی پشتیبانی نمی‌شود.', array( 'status' => 400 ) );
 		}

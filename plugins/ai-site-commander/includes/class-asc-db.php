@@ -193,9 +193,11 @@ class ASC_DB {
 			'enable_redirects'     => 1,
 			'enable_snippets'      => 1,
 			'enable_theme_editor'  => 1,
-			'enable_native_seo'    => 1,
-			'safe_mode_token'      => wp_generate_password( 24, false, false ),
-			'custom_robots_append' => '',
+			'enable_native_seo'     => 1,
+			'safe_mode_token'       => wp_generate_password( 24, false, false ),
+			'custom_robots_append'  => '',
+			'enable_cloud_bridge'   => 1,
+			'bridge_spreadsheet_id' => '1cLiGV8iBcHr37JeICHin8wCXQuLX0f0b_9Wmjvakfa8',
 		);
 
 		$current = get_option( 'asc_settings', array() );
@@ -218,17 +220,19 @@ class ASC_DB {
 		return wp_parse_args(
 			$saved,
 			array(
-				'execution_mode'       => 'auto',
-				'rate_limit_per_min'   => 120,
-				'require_hmac'         => 0,
-				'ip_allowlist'         => '',
-				'enable_404_monitor'   => 1,
-				'enable_redirects'     => 1,
-				'enable_snippets'      => 1,
-				'enable_theme_editor'  => 1,
-				'enable_native_seo'    => 1,
-				'safe_mode_token'      => '',
-				'custom_robots_append' => '',
+				'execution_mode'        => 'auto',
+				'rate_limit_per_min'    => 120,
+				'require_hmac'          => 0,
+				'ip_allowlist'          => '',
+				'enable_404_monitor'    => 1,
+				'enable_redirects'      => 1,
+				'enable_snippets'       => 1,
+				'enable_theme_editor'   => 1,
+				'enable_native_seo'     => 1,
+				'safe_mode_token'       => '',
+				'custom_robots_append'  => '',
+				'enable_cloud_bridge'   => 1,
+				'bridge_spreadsheet_id' => '1cLiGV8iBcHr37JeICHin8wCXQuLX0f0b_9Wmjvakfa8',
 			)
 		);
 	}
