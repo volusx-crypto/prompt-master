@@ -110,4 +110,18 @@
 			window.location.reload();
 		});
 	});
+
+	$(document).on('click', '#asc-btn-auto-config-autolinks', function () {
+		var $btn = $(this).prop('disabled', true).text('در حال اعمال تنظیمات بهینه...');
+		postAction({
+			sub_action: 'configure_autolinks'
+		}, function (data) {
+			$('#asc-autolinks-config-result').html(
+				'<div style="padding:10px;background:#dcfce7;color:#166534;border-radius:8px;font-weight:700;">✓ ' +
+				(data.message || 'تنظیمات بهینه با موفقیت ذخیره شد.') +
+				'</div>'
+			);
+			$btn.prop('disabled', false).text('اعمال خودکار بهترین تنظیمات سئوی فارسی روی Autolinks Manager (همراه با Snapshot)');
+		});
+	});
 })(jQuery);

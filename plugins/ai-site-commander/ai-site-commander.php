@@ -3,7 +3,7 @@
  * Plugin Name: فرمانده هوشمند سایت (AI Site Commander)
  * Plugin URI: https://github.com/volusx-crypto/prompt-master
  * Description: پل ارتباطی امن و پنل مدیریت جامع برای اتصال مستقیم هوش مصنوعی به وردپرس و ووکامرس؛ ویرایش مستقیم محتوا، سئو (Rank Math / Yoast)، ریدایرکت‌ها، کدهای سفارشی، فایل‌های قالب و تنظیمات همراه با سیستم پشتیبان‌گیری خودکار و بازگشت یک‌کلیکی (Rollback).
- * Version: 1.0.0
+ * Version: 1.2.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AI Site Suite
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'ASC_VERSION', '1.0.0' );
+define( 'ASC_VERSION', '1.2.0' );
 define( 'ASC_PLUGIN_FILE', __FILE__ );
 define( 'ASC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ASC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -29,6 +29,7 @@ require_once ASC_PLUGIN_DIR . 'includes/class-asc-content-manager.php';
 require_once ASC_PLUGIN_DIR . 'includes/class-asc-seo-manager.php';
 require_once ASC_PLUGIN_DIR . 'includes/class-asc-redirect-404.php';
 require_once ASC_PLUGIN_DIR . 'includes/class-asc-code-files.php';
+require_once ASC_PLUGIN_DIR . 'includes/class-asc-plugin-inspector.php';
 require_once ASC_PLUGIN_DIR . 'includes/class-asc-engine.php';
 require_once ASC_PLUGIN_DIR . 'includes/class-asc-rest-api.php';
 

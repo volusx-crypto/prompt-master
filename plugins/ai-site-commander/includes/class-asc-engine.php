@@ -42,6 +42,7 @@ class ASC_Engine {
 			'list_theme_files',
 			'read_theme_file',
 			'list_snapshots',
+			'audit_plugin_conflicts',
 		);
 
 		$is_write = ! in_array( $action_type, $read_only_actions, true );
@@ -180,6 +181,12 @@ class ASC_Engine {
 
 			case 'rollback_snapshot':
 				return ASC_Snapshot::rollback( $params['snapshot_id'] ?? 0, $actor );
+
+			case 'audit_plugin_conflicts':
+				return ASC_Plugin_Inspector::audit_conflicts();
+
+			case 'configure_autolinks_manager':
+				return ASC_Plugin_Inspector::auto_configure_autolinks_manager( $actor );
 
 			default:
 				return new WP_Error(

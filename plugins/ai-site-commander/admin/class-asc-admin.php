@@ -191,6 +191,14 @@ class ASC_Admin {
 				wp_send_json_success( $res );
 				break;
 
+			case 'configure_autolinks':
+				$res = ASC_Plugin_Inspector::auto_configure_autolinks_manager( 'wp-admin:' . wp_get_current_user()->user_login );
+				if ( is_wp_error( $res ) ) {
+					wp_send_json_error( array( 'message' => $res->get_error_message() ), 400 );
+				}
+				wp_send_json_success( $res );
+				break;
+
 			default:
 				wp_send_json_error( array( 'message' => 'عملیات نامعتبر است.' ), 400 );
 		}
@@ -210,6 +218,7 @@ class ASC_Admin {
 
 		$tabs = array(
 			'overview'  => 'پیشخوان و وضعیت اتصال',
+			'conflicts' => 'تداخل‌سنج و Autolinks Manager',
 			'keys'      => 'کلیدهای API و اتصال هوش مصنوعی',
 			'queue'     => 'صف تایید تغییرات (' . (int) $status['counts']['pending_queue'] . ')',
 			'snapshots' => 'پشتیبان‌ها و بازگشت (Rollback)',
@@ -646,6 +655,51 @@ class ASC_Admin {
 
 						<?php submit_button( 'ذخیره تنظیمات فرمانده هوشمند سایت' ); ?>
 					</form>
+
+				<?php elseif ( 'conflicts' === $tab ) : ?>
+					<?php $audit = ASC_Plugin_Inspector::audit_conflicts(); ?>
+					<div class="asc-two-col">
+						<div class="asc-box">
+							<h3>وضعیت افزونه Autolinks Manager و بررسی تداخل</h3>
+							<?php if ( ! empty( $audit['autolinks_detected'] ) ) : ?>
+								<p style="color:#15803d;font-weight:700;">
+									✓ افزونه شناسایی شد: <?php echo esc_html( $audit['autolinks_detected']['name'] . ' (v' . $audit['autolinks_detected']['version'] . ')' ); ?>
+								</p>
+							<?php else : ?>
+								<p style="color:#b45309;font-weight:700;">
+									⚠ افزونه Autolinks Manager در لیست افزونه‌های فعال یافت نشد (تعداد گزینه‌های دیتابیس شناسایی‌شده: <?php echo (int) $audit['daam_options_found']; ?>).
+								</p>
+							<?php endif; ?>
+
+							<?php if ( empty( $audit['warnings'] ) ) : ?>
+								<p style="color:#15803d;">✓ هیچ‌گونه تداخلی بین افزونه‌های فعال سایت شما شناسایی نشد!</p>
+							<?php else : ?>
+								<?php foreach ( $audit['warnings'] as $w ) : ?>
+									<div style="margin-bottom:10px;padding:10px 12px;background:#fff;border-radius:8px;border-right:4px solid <?php echo 'critical' === $w['severity'] ? '#dc2626' : ( 'medium' === $w['severity'] ? '#f59e0b' : '#2563eb' ); ?>;">
+										<strong><?php echo esc_html( $w['title'] ); ?></strong>
+										<p style="margin:4px 0 0;font-size:12px;color:#475569;"><?php echo esc_html( $w['detail'] ); ?></p>
+									</div>
+								<?php endforeach; ?>
+							<?php endif; ?>
+
+							<p style="margin-top:16px;">
+								<button type="button" class="button button-primary" id="asc-btn-auto-config-autolinks">
+									اعمال خودکار بهترین تنظیمات سئوی فارسی روی Autolinks Manager (همراه با Snapshot)
+								</button>
+							</p>
+							<div id="asc-autolinks-config-result" style="margin-top:10px;"></div>
+						</div>
+
+						<div class="asc-box">
+							<h3>لیست افزونه‌های فعال سایت (<?php echo (int) $audit['active_plugins_count']; ?> مورد)</h3>
+							<p style="font-size:12px;color:#475569;">در صورت نیاز می‌توانید این گزارش را کپی کرده و در چت ارسال کنید:</p>
+							<textarea readonly rows="11" class="large-text code" dir="ltr"><?php
+								foreach ( $audit['active_plugins'] as $pl ) {
+									echo esc_textarea( $pl['name'] . ' [' . $pl['version'] . '] (' . $pl['file'] . ')' . "\n" );
+								}
+							?></textarea>
+						</div>
+					</div>
 				<?php endif; ?>
 			</div>
 		</div>
