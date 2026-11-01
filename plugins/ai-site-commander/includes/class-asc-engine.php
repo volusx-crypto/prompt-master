@@ -43,6 +43,7 @@ class ASC_Engine {
 			'read_theme_file',
 			'list_snapshots',
 			'audit_plugin_conflicts',
+			'get_indexing_report',
 		);
 
 		$is_write = ! in_array( $action_type, $read_only_actions, true );
@@ -187,6 +188,17 @@ class ASC_Engine {
 
 			case 'configure_autolinks_manager':
 				return ASC_Plugin_Inspector::auto_configure_autolinks_manager( $actor );
+
+			case 'get_indexing_report':
+				return ASC_Indexing_Fixer::get_diagnostic_report();
+
+			case 'remediate_gsc_indexing':
+				$res = ASC_Indexing_Fixer::remediate_all( $actor );
+				if ( ! is_wp_error( $res ) ) {
+					update_option( 'asc_indexing_remediation_version', ASC_Indexing_Fixer::REMEDIATION_VERSION, false );
+					update_option( 'asc_last_indexing_remediation', $res, false );
+				}
+				return $res;
 
 			default:
 				return new WP_Error(

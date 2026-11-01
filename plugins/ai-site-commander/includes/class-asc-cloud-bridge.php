@@ -417,6 +417,15 @@ class ASC_Cloud_Bridge {
 			return ASC_Plugin_Inspector::auto_configure_autolinks_manager( $actor, $seed );
 		}
 
+		if ( 'remediate_gsc_indexing' === $action ) {
+			$res = ASC_Indexing_Fixer::remediate_all( $actor );
+			if ( ! is_wp_error( $res ) ) {
+				update_option( 'asc_indexing_remediation_version', ASC_Indexing_Fixer::REMEDIATION_VERSION, false );
+				update_option( 'asc_last_indexing_remediation', $res, false );
+			}
+			return $res;
+		}
+
 		return ASC_Engine::dispatch(
 			$action,
 			$params,
@@ -464,6 +473,7 @@ class ASC_Cloud_Bridge {
 	private static function push_site_report() {
 		$overview = ASC_Engine::get_site_status();
 		$audit    = ASC_Plugin_Inspector::audit_conflicts();
+		$idx_diag = class_exists( 'ASC_Indexing_Fixer' ) ? ASC_Indexing_Fixer::get_diagnostic_report() : array();
 		$now      = current_time( 'mysql' );
 
 		$rows = array(
@@ -472,6 +482,10 @@ class ASC_Cloud_Bridge {
 			array( 'commander_version', ASC_VERSION, $now, 'PHP ' . PHP_VERSION . ' | WP ' . get_bloginfo( 'version' ) ),
 			array( 'service_account_email', self::get_service_account_email(), $now, 'SEO Provider: ' . $overview['seo_provider'] ),
 			array( 'published_counts', wp_json_encode( $overview['counts'], JSON_UNESCAPED_UNICODE ), $now, 'Theme: ' . $overview['active_theme']['name'] ),
+			array( 'indexing_remediation_version', isset( $idx_diag['remediation_version'] ) ? (string) $idx_diag['remediation_version'] : 'n/a', $now, wp_json_encode( $idx_diag['last_remediation_summary'] ?? array(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) ),
+			array( 'crawlable_money_pool', wp_json_encode( $idx_diag['crawlable_money_pool'] ?? array(), JSON_UNESCAPED_UNICODE ), $now, 'Remaining unintended noindex: ' . (int) ( $idx_diag['remaining_product_post_ni'] ?? 0 ) ),
+			array( 'unresolved_404_sample', wp_json_encode( $idx_diag['unresolved_404_sample'] ?? array(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ), $now, 'Unresolved 404 count: ' . (int) ( $idx_diag['unresolved_404_count'] ?? 0 ) ),
+			array( 'captured_5xx_errors', wp_json_encode( $idx_diag['captured_5xx_errors'] ?? array(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ), $now, 'Frontend PHP fatal monitor' ),
 			array( 'active_plugins_count', (string) $audit['active_plugins_count'], $now, wp_json_encode( array_column( $audit['active_plugins'], 'file' ) ) ),
 			array( 'autolinks_rules_count', (string) $audit['autolinks_rules_count'], $now, 'daextam options: ' . $audit['daam_options_found'] ),
 			array( 'autolinks_key_options', wp_json_encode( array_intersect_key( $audit['daam_options'], array_flip( array(

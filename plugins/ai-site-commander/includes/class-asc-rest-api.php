@@ -138,6 +138,37 @@ class ASC_REST_API {
 			)
 		);
 
+		// Search Console Non-Indexed Pages Diagnostic & Automated Remediation.
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/indexing/audit',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'permission_callback' => self::permission_for( 'read' ),
+				'callback'            => function () {
+					return rest_ensure_response( ASC_Indexing_Fixer::get_diagnostic_report() );
+				},
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE_V1,
+			'/indexing/remediate',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'permission_callback' => self::permission_for( 'seo:write' ),
+				'callback'            => function () {
+					return rest_ensure_response(
+						ASC_Engine::dispatch(
+							'remediate_gsc_indexing',
+							array(),
+							array( 'reason' => 'اجرای اصلاح جامع ۱۷۵ صفحه ایندکس‌نشده سرچ کنسول از طریق REST API' )
+						)
+					);
+				},
+			)
+		);
+
 		register_rest_route(
 			self::NAMESPACE_V1,
 			'/seo/(?P<id>\d+)',
@@ -387,8 +418,12 @@ class ASC_REST_API {
 			'list_theme_files'     => 'read',
 			'read_theme_file'      => 'read',
 			'write_theme_file'     => 'files:write',
-			'list_snapshots'       => 'read',
-			'rollback_snapshot'    => 'rollback:write',
+			'list_snapshots'              => 'read',
+			'rollback_snapshot'           => 'rollback:write',
+			'audit_plugin_conflicts'      => 'read',
+			'configure_autolinks_manager' => 'seo:write',
+			'get_indexing_report'         => 'read',
+			'remediate_gsc_indexing'      => 'seo:write',
 		);
 
 		$required_scope = isset( $scope_map[ $action ] ) ? $scope_map[ $action ] : '*';
@@ -465,6 +500,10 @@ class ASC_REST_API {
 					'write_theme_file',
 					'list_snapshots',
 					'rollback_snapshot',
+					'audit_plugin_conflicts',
+					'configure_autolinks_manager',
+					'get_indexing_report',
+					'remediate_gsc_indexing',
 				),
 			)
 		);

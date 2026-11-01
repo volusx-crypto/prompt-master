@@ -135,8 +135,8 @@ class AGSC_DB {
 			'ai_model'               => 'gpt-4o',
 			'ai_custom_base_url'     => '',
 			'autopilot_auto_fix'     => 0,
-			'auto_fix_safe_types'    => array( 'low_ctr_high_impressions', 'not_found_404', 'canonical_mismatch', 'noindex_blocked', 'rich_results_error' ),
-			'inspect_urls_per_sync'  => 15,
+			'auto_fix_safe_types'    => array( 'low_ctr_high_impressions', 'not_found_404', 'canonical_mismatch', 'noindex_blocked', 'robots_blocked', 'discovered_not_indexed', 'crawled_not_indexed', 'rich_results_error', 'redirect_page' ),
+			'inspect_urls_per_sync'  => 25,
 			'standalone_api_key'     => 'agsc_' . wp_generate_password( 32, false, false ),
 		);
 
@@ -167,8 +167,8 @@ class AGSC_DB {
 				'ai_model'              => 'gpt-4o',
 				'ai_custom_base_url'    => '',
 				'autopilot_auto_fix'    => 0,
-				'auto_fix_safe_types'   => array( 'low_ctr_high_impressions', 'not_found_404', 'canonical_mismatch', 'noindex_blocked', 'rich_results_error' ),
-				'inspect_urls_per_sync' => 15,
+				'auto_fix_safe_types'   => array( 'low_ctr_high_impressions', 'not_found_404', 'canonical_mismatch', 'noindex_blocked', 'robots_blocked', 'discovered_not_indexed', 'crawled_not_indexed', 'rich_results_error', 'redirect_page' ),
+				'inspect_urls_per_sync' => 25,
 				'standalone_api_key'    => '',
 			)
 		);

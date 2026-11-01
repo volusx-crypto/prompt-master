@@ -138,4 +138,25 @@
 			$btn.prop('disabled', false).text('همگام‌سازی فوری با چت هوش مصنوعی (Sync Now)');
 		});
 	});
+
+	$(document).on('click', '#asc-btn-remediate-indexing', function () {
+		var $btn = $(this).prop('disabled', true).text('در حال اجرای اصلاحات ایندکس و ارسال IndexNow...');
+		postAction({
+			sub_action: 'remediate_gsc_indexing'
+		}, function (data) {
+			var rescued = ((data.noindex_rescued_posts || []).length + (data.noindex_rescued_terms || []).length);
+			var redirs = (data.duplicate_redirects_added || []).length;
+			var cats = (data.enriched_categories || []).length;
+			var ctr = (data.ctr_optimized_pages || []).length;
+			$('#asc-indexing-remediate-result').html(
+				'<div style="padding:10px;background:#dcfce7;color:#166534;border-radius:8px;font-weight:700;">✓ اصلاح جامع سرچ کنسول انجام شد: ' +
+				rescued + ' رفع noindex، ' +
+				redirs + ' ادغام تکراری ۳۰۱، ' +
+				cats + ' تقویت دسته‌بندی، ' +
+				ctr + ' بهینه‌سازی CTR، ' +
+				(data.indexnow_submitted_count || 0) + ' ارسال IndexNow.</div>'
+			);
+			$btn.prop('disabled', false).text('اجرای مجدد اصلاح کامل ایندکس سرچ کنسول + پینگ IndexNow (همراه با Snapshot)');
+		});
+	});
 })(jQuery);

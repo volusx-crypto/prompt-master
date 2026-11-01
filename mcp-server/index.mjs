@@ -305,6 +305,17 @@ const TOOLS = [
 			required: ['mode'],
 		},
 	},
+	{
+		name: 'wp_indexing_audit_and_remediate',
+		description: 'بررسی وضعیت صفحات ایندکس‌نشده سرچ کنسول، سپرهای فنی، ۴۰۴ و 5xx و اجرای خودکار اصلاح جامع ایندکس همراه با پینگ IndexNow.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				mode: { type: 'string', enum: ['audit', 'remediate'] },
+			},
+			required: ['mode'],
+		},
+	},
 ];
 
 async function executeTool(name, args = {}) {
@@ -334,6 +345,11 @@ async function executeTool(name, args = {}) {
 
 		case 'wp_bulk_seo_audit':
 			return callWpApi(ASC_BASE, '/execute', 'POST', { action: 'bulk_seo_audit', params: args });
+
+		case 'wp_indexing_audit_and_remediate':
+			return args.mode === 'remediate'
+				? callWpApi(ASC_BASE, '/indexing/remediate', 'POST', {})
+				: callWpApi(ASC_BASE, '/indexing/audit', 'GET');
 
 		case 'wp_inject_internal_link':
 			return callWpApi(ASC_BASE, '/execute', 'POST', { action: 'inject_internal_link', params: args });
@@ -441,7 +457,7 @@ async function handleJsonRpcMessage(msg) {
 						capabilities: { tools: {} },
 						serverInfo: {
 							name: 'wordpress-gsc-ai-mcp',
-							version: '1.0.0',
+							version: '1.1.0',
 						},
 					},
 				});

@@ -19,14 +19,25 @@ class ASC_Redirect_404 {
 	}
 
 	/**
-	 * Normalize a URL or path into a clean relative request path (e.g., '/old-slug').
+	 * Normalize a URL or path into a clean decoded UTF-8 relative request path (e.g., '/product/فیلر-ولوس').
 	 *
 	 * @param string $url_or_path Input URL or path.
 	 * @return string
 	 */
 	public static function normalize_path( $url_or_path ) {
 		$raw  = trim( (string) $url_or_path );
-		$path = (string) wp_parse_url( $raw, PHP_URL_PATH );
+		$qpos = strpos( $raw, '?' );
+		if ( false !== $qpos ) {
+			$raw = substr( $raw, 0, $qpos );
+		}
+		if ( preg_match( '#^https?://[^/]+(/.*)?$#i', $raw, $m ) ) {
+			$path = isset( $m[1] ) ? $m[1] : '/';
+		} else {
+			$parsed = wp_parse_url( $raw, PHP_URL_PATH );
+			$path   = is_string( $parsed ) ? $parsed : $raw;
+		}
+		$path = rawurldecode( (string) $path );
+		$path = preg_replace( '/[\x00-\x1F\x7F<>"]/', '', $path );
 		if ( '' === $path ) {
 			$path = '/';
 		}
@@ -40,6 +51,22 @@ class ASC_Redirect_404 {
 	}
 
 	/**
+	 * Percent-encode any non-ASCII bytes in a URL or relative path so HTTP Location headers & esc_url_raw stay lossless.
+	 *
+	 * @param string $url URL or path.
+	 * @return string
+	 */
+	public static function encode_url_utf8( $url ) {
+		return preg_replace_callback(
+			'/[^\x21-\x7E]/',
+			function ( $m ) {
+				return rawurlencode( $m[0] );
+			},
+			trim( (string) $url )
+		);
+	}
+
+	/**
 	 * Execute matching redirect rules or capture 404 hits on frontend requests.
 	 */
 	public static function handle_redirects_and_404() {
@@ -48,7 +75,7 @@ class ASC_Redirect_404 {
 		}
 
 		$settings = ASC_DB::get_settings();
-		$req_uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
+		$req_uri  = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 		$req_path = self::normalize_path( $req_uri );
 
 		// 1. Check active redirect rules first.
@@ -75,36 +102,47 @@ class ASC_Redirect_404 {
 					}
 					$target_path = self::normalize_path( $target );
 					// Guard against self-redirect loops.
-					if ( $target_path !== $req_path || wp_parse_url( $target, PHP_URL_HOST ) !== wp_parse_url( home_url(), PHP_URL_HOST ) ) {
-						wp_redirect( esc_url_raw( $target ), in_array( $code, array( 301, 302, 307, 308 ), true ) ? $code : 301 );
-						exit;
+					if ( $target_path !== $req_path || wp_parse_url( self::encode_url_utf8( $target ), PHP_URL_HOST ) !== wp_parse_url( home_url(), PHP_URL_HOST ) ) {
+						$safe_target = esc_url_raw( self::encode_url_utf8( $target ) );
+						if ( '' !== $safe_target ) {
+							wp_redirect( $safe_target, in_array( $code, array( 301, 302, 307, 308 ), true ) ? $code : 301 ); // phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect
+							exit;
+						}
 					}
 				}
 			}
 		}
 
-		// 2. Log 404 errors if not redirected.
+		// 2. Smart slug-matching 404 recovery before logging an unresolved 404.
+		if ( is_404() && class_exists( 'ASC_Indexing_Fixer' ) ) {
+			ASC_Indexing_Fixer::maybe_smart_redirect_404( $req_path );
+		}
+
+		// 3. Log 404 errors if not redirected.
 		if ( is_404() && ! empty( $settings['enable_404_monitor'] ) ) {
 			self::log_404_hit( $req_path );
 		}
 	}
 
 	/**
-	 * Match a normalized request path against exact and regex rules.
+	 * Match a normalized request path against exact and regex rules (both decoded UTF-8 and percent-encoded).
 	 *
 	 * @param string $req_path Normalized path.
 	 * @return array|null
 	 */
 	public static function match_redirect( $req_path ) {
 		global $wpdb;
-		$table = ASC_DB::table( 'redirects' );
+		$table   = ASC_DB::table( 'redirects' );
+		$encoded = strtolower( self::encode_url_utf8( $req_path ) );
 
-		// Exact match first (fast indexed lookup).
+		// Exact match first (fast indexed lookup supporting both UTF-8 and percent-encoded paths).
 		$exact = $wpdb->get_row(
 			$wpdb->prepare(
-				"SELECT * FROM {$table} WHERE is_active = 1 AND is_regex = 0 AND (source_path = %s OR source_path = %s) ORDER BY id DESC LIMIT 1",
+				"SELECT * FROM {$table} WHERE is_active = 1 AND is_regex = 0 AND (source_path = %s OR source_path = %s OR LOWER(source_path) = %s OR LOWER(source_path) = %s) ORDER BY id DESC LIMIT 1",
 				$req_path,
-				trailingslashit( $req_path )
+				trailingslashit( $req_path ),
+				$encoded,
+				trailingslashit( $encoded )
 			),
 			ARRAY_A
 		);
@@ -216,7 +254,7 @@ class ASC_Redirect_404 {
 			return new WP_Error( 'asc_missing_redirect_target', 'آدرس مقصد برای ریدایرکت الزامی است.', array( 'status' => 400 ) );
 		}
 		if ( '' !== $target_url && 0 !== strpos( $target_url, '/' ) ) {
-			$target_url = esc_url_raw( $target_url );
+			$target_url = esc_url_raw( self::encode_url_utf8( $target_url ) );
 		}
 
 		if ( '' === $source_path || '/' === $source_path ) {

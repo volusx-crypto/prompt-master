@@ -121,6 +121,45 @@ class ASC_Snapshot {
 	}
 
 	/**
+	 * Capture full state of a WordPress taxonomy term (description, core fields, and term meta).
+	 *
+	 * @param int    $term_id  Term ID.
+	 * @param string $taxonomy Taxonomy slug.
+	 * @return array
+	 */
+	public static function capture_term_state( $term_id, $taxonomy ) {
+		$term = get_term( (int) $term_id, (string) $taxonomy, ARRAY_A );
+		if ( ! $term || is_wp_error( $term ) ) {
+			return array(
+				'exists'   => false,
+				'term_id'  => (int) $term_id,
+				'taxonomy' => (string) $taxonomy,
+			);
+		}
+
+		$all_meta   = get_term_meta( (int) $term_id );
+		$clean_meta = array();
+		if ( is_array( $all_meta ) ) {
+			foreach ( $all_meta as $key => $values ) {
+				$clean_meta[ $key ] = array_map( 'maybe_unserialize', $values );
+			}
+		}
+
+		return array(
+			'exists'   => true,
+			'term_id'  => (int) $term['term_id'],
+			'taxonomy' => (string) $term['taxonomy'],
+			'term'     => array(
+				'name'        => $term['name'],
+				'slug'        => $term['slug'],
+				'description' => $term['description'],
+				'parent'      => (int) $term['parent'],
+			),
+			'meta'     => $clean_meta,
+		);
+	}
+
+	/**
 	 * List snapshots with pagination.
 	 *
 	 * @param int $limit  Number of items.
@@ -233,6 +272,31 @@ class ASC_Snapshot {
 					delete_option( $option_name );
 				} else {
 					update_option( $option_name, $before['value'] );
+				}
+				break;
+
+			case 'term':
+				$tid = absint( $target_id );
+				$tax = ! empty( $before['taxonomy'] ) ? (string) $before['taxonomy'] : 'product_cat';
+				if ( ! empty( $before['exists'] ) && $tid > 0 && taxonomy_exists( $tax ) ) {
+					if ( ! empty( $before['term'] ) && is_array( $before['term'] ) ) {
+						wp_update_term( $tid, $tax, wp_slash( $before['term'] ) );
+					}
+					if ( isset( $before['meta'] ) && is_array( $before['meta'] ) ) {
+						$existing_meta = get_term_meta( $tid );
+						if ( is_array( $existing_meta ) ) {
+							foreach ( array_keys( $existing_meta ) as $mkey ) {
+								delete_term_meta( $tid, $mkey );
+							}
+						}
+						foreach ( $before['meta'] as $mkey => $values ) {
+							if ( is_array( $values ) ) {
+								foreach ( $values as $val ) {
+									add_term_meta( $tid, $mkey, wp_slash( $val ) );
+								}
+							}
+						}
+					}
 				}
 				break;
 

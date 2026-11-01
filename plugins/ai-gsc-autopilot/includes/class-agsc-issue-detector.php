@@ -22,10 +22,13 @@ class AGSC_Issue_Detector {
 	public static function issue_type_labels() {
 		return array(
 			'not_found_404'              => 'خطای ۴۰۴ / آدرس یافت‌نشده در گوگل',
+			'server_error_5xx'           => 'خطای سرور (5xx) در خزش گوگل',
 			'noindex_blocked'            => 'مسدود شدن ایندکس به دلیل تگ noindex',
 			'robots_blocked'             => 'مسدود شده توسط فایل robots.txt',
 			'canonical_mismatch'         => 'عدم تطابق آدرس کنونیکال (Canonical Mismatch)',
+			'redirect_page'              => 'صفحه دارای ریدایرکت در ایندکس / نقشه سایت',
 			'rich_results_error'         => 'خطای اسکیما و داده‌های ساختاریافته (Rich Results)',
+			'discovered_not_indexed'     => 'کشف شده اما هنوز ایندکس نشده (Discovered - Not Indexed)',
 			'crawled_not_indexed'        => 'خزش شده اما ایندکس نشده (Crawled - Not Indexed)',
 			'traffic_drop'               => 'افت محسوس کلیک و رتبه در ۲۸ روز اخیر',
 			'low_ctr_high_impressions'   => 'ایمپرشن بالا اما نرخ کلیک (CTR) پایین',
@@ -111,7 +114,8 @@ class AGSC_Issue_Detector {
 					)
 				);
 
-				if ( count( $urls_to_inspect ) < (int) $settings['inspect_urls_per_sync'] ) {
+				$inspector_top_cap = max( 4, (int) floor( ( (int) $settings['inspect_urls_per_sync'] ) * 0.3 ) );
+				if ( count( $urls_to_inspect ) < $inspector_top_cap ) {
 					$urls_to_inspect[] = $url;
 				}
 
@@ -243,23 +247,67 @@ class AGSC_Issue_Detector {
 			}
 		}
 
-		// 4. Add recent published posts to URL Inspection list so unindexed pages are caught too!
-		$recent_posts = get_posts(
-			array(
-				'post_type'      => array( 'post', 'page', 'product' ),
-				'post_status'    => 'publish',
-				'posts_per_page' => 10,
-				'fields'         => 'ids',
-			)
+		// 4. Prioritize 0-impression published WordPress URLs (the exact pool of Non-Indexed pages!) using a rotating cursor.
+		$seen_in_gsc = array();
+		if ( ! empty( $curr_pages['rows'] ) && is_array( $curr_pages['rows'] ) ) {
+			foreach ( $curr_pages['rows'] as $r ) {
+				if ( ! empty( $r['keys'][0] ) ) {
+					$seen_in_gsc[ untrailingslashit( rawurldecode( (string) $r['keys'][0] ) ) ] = true;
+				}
+			}
+		}
+
+		$all_money_ids = $wpdb->get_col(
+			"SELECT ID FROM {$wpdb->posts}
+			 WHERE post_status = 'publish' AND post_type IN ('product', 'post', 'page')
+			 ORDER BY post_type ASC, ID DESC
+			 LIMIT 500"
 		);
-		foreach ( $recent_posts as $pid ) {
-			if ( count( $urls_to_inspect ) >= (int) $settings['inspect_urls_per_sync'] ) {
-				break;
+
+		$unindexed_candidates = array();
+		if ( is_array( $all_money_ids ) ) {
+			foreach ( $all_money_ids as $pid ) {
+				$plink = get_permalink( (int) $pid );
+				if ( ! $plink ) {
+					continue;
+				}
+				if ( class_exists( 'ASC_Indexing_Fixer' ) && ASC_Indexing_Fixer::is_transactional_endpoint( $plink ) ) {
+					continue;
+				}
+				$norm_key = untrailingslashit( rawurldecode( (string) $plink ) );
+				if ( ! isset( $seen_in_gsc[ $norm_key ] ) ) {
+					$unindexed_candidates[] = $plink;
+				}
 			}
-			$plink = get_permalink( $pid );
-			if ( $plink && ! in_array( $plink, $urls_to_inspect, true ) ) {
-				$urls_to_inspect[] = $plink;
+		}
+
+		if ( taxonomy_exists( 'product_cat' ) ) {
+			$cat_terms = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false ) );
+			if ( is_array( $cat_terms ) ) {
+				foreach ( $cat_terms as $ct ) {
+					$tlink = get_term_link( $ct );
+					if ( ! is_wp_error( $tlink ) ) {
+						$norm_key = untrailingslashit( rawurldecode( (string) $tlink ) );
+						if ( ! isset( $seen_in_gsc[ $norm_key ] ) ) {
+							$unindexed_candidates[] = $tlink;
+						}
+					}
+				}
 			}
+		}
+
+		$unindexed_total = count( $unindexed_candidates );
+		if ( $unindexed_total > 0 ) {
+			$cursor = (int) get_option( 'agsc_unindexed_inspect_offset', 0 ) % $unindexed_total;
+			$added  = 0;
+			for ( $i = 0; $i < $unindexed_total && count( $urls_to_inspect ) < (int) $settings['inspect_urls_per_sync']; $i++ ) {
+				$cand = $unindexed_candidates[ ( $cursor + $i ) % $unindexed_total ];
+				if ( ! in_array( $cand, $urls_to_inspect, true ) ) {
+					$urls_to_inspect[] = $cand;
+					++$added;
+				}
+			}
+			update_option( 'agsc_unindexed_inspect_offset', ( $cursor + $added ) % max( 1, $unindexed_total ), false );
 		}
 
 		// 5. Inspect URLs via Google URL Inspection API v1.
@@ -309,6 +357,18 @@ class AGSC_Issue_Detector {
 		$google_canonical = $idx['googleCanonical'] ?? '';
 		$user_canonical   = $idx['userCanonical'] ?? '';
 
+		// Server error (5xx).
+		if ( 'SERVER_ERROR' === $page_fetch_state || false !== stripos( $coverage_state, '5xx' ) || false !== stripos( $coverage_state, 'Server error' ) ) {
+			$count += self::upsert_issue(
+				'server_error_5xx',
+				'critical',
+				$url,
+				sprintf( 'خطای سرور (5xx) هنگام خزش گوگل (%s)', $coverage_state ? $coverage_state : $page_fetch_state ),
+				array( 'pageFetchState' => $page_fetch_state, 'coverageState' => $coverage_state ),
+				$idx
+			);
+		}
+
 		// 404 / Soft 404.
 		if ( in_array( $page_fetch_state, array( 'NOT_FOUND', 'SOFT_404' ), true ) || false !== stripos( $coverage_state, '404' ) ) {
 			$count += self::upsert_issue(
@@ -316,6 +376,18 @@ class AGSC_Issue_Detector {
 				'critical',
 				$url,
 				sprintf( 'صفحه در سرچ کنسول با خطای %s مواجه است', $page_fetch_state ? $page_fetch_state : '404' ),
+				array( 'pageFetchState' => $page_fetch_state, 'coverageState' => $coverage_state ),
+				$idx
+			);
+		}
+
+		// Page with redirect.
+		if ( false !== stripos( $page_fetch_state, 'REDIRECT' ) || false !== stripos( $coverage_state, 'Page with redirect' ) ) {
+			$count += self::upsert_issue(
+				'redirect_page',
+				'medium',
+				$url,
+				'آدرس دارای ریدایرکت در نقشه سایت یا لینک‌های داخلی شناسایی شد',
 				array( 'pageFetchState' => $page_fetch_state, 'coverageState' => $coverage_state ),
 				$idx
 			);
@@ -334,7 +406,7 @@ class AGSC_Issue_Detector {
 		}
 
 		// Blocked by robots.txt.
-		if ( 'DISALLOWED' === $robots_state ) {
+		if ( 'DISALLOWED' === $robots_state || false !== stripos( $coverage_state, 'robots.txt' ) ) {
 			$count += self::upsert_issue(
 				'robots_blocked',
 				'critical',
@@ -346,7 +418,7 @@ class AGSC_Issue_Detector {
 		}
 
 		// Canonical mismatch.
-		if ( '' !== $google_canonical && '' !== $user_canonical && untrailingslashit( $google_canonical ) !== untrailingslashit( $user_canonical ) ) {
+		if ( ( '' !== $google_canonical && '' !== $user_canonical && untrailingslashit( $google_canonical ) !== untrailingslashit( $user_canonical ) ) || false !== stripos( $coverage_state, 'chose different canonical' ) ) {
 			$count += self::upsert_issue(
 				'canonical_mismatch',
 				'high',
@@ -357,10 +429,11 @@ class AGSC_Issue_Detector {
 			);
 		}
 
-		// Crawled / Discovered - currently not indexed.
-		if ( 'PASS' !== $verdict && ( false !== stripos( $coverage_state, 'not indexed' ) ) && 'NOT_FOUND' !== $page_fetch_state ) {
-			$count += self::upsert_issue(
-				'crawled_not_indexed',
+		// Discovered - currently not indexed vs Crawled - currently not indexed.
+		if ( 'PASS' !== $verdict && false !== stripos( $coverage_state, 'not indexed' ) && 'NOT_FOUND' !== $page_fetch_state ) {
+			$is_discovered = ( false !== stripos( $coverage_state, 'Discovered' ) );
+			$count        += self::upsert_issue(
+				$is_discovered ? 'discovered_not_indexed' : 'crawled_not_indexed',
 				'high',
 				$url,
 				sprintf( 'صفحه ایندکس نشده است (%s)', $coverage_state ),

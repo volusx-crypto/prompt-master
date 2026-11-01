@@ -209,6 +209,22 @@ class ASC_Admin {
 				wp_send_json_success( $res );
 				break;
 
+			case 'remediate_gsc_indexing':
+				$res = ASC_Engine::dispatch(
+					'remediate_gsc_indexing',
+					array(),
+					array(
+						'actor'        => 'wp-admin:' . wp_get_current_user()->user_login,
+						'reason'       => 'اجرای اصلاح جامع ۱۷۵ صفحه ایندکس‌نشده سرچ کنسول از پنل مدیریت',
+						'bypass_queue' => true,
+					)
+				);
+				if ( is_wp_error( $res ) ) {
+					wp_send_json_error( array( 'message' => $res->get_error_message() ), 400 );
+				}
+				wp_send_json_success( $res );
+				break;
+
 			default:
 				wp_send_json_error( array( 'message' => 'عملیات نامعتبر است.' ), 400 );
 		}
@@ -323,6 +339,27 @@ class ASC_Admin {
 							<button type="button" class="button button-primary" id="asc-btn-sync-bridge">همگام‌سازی فوری با چت هوش مصنوعی (Sync Now)</button>
 						</p>
 						<div id="asc-bridge-sync-result" style="margin-top:8px;"></div>
+					</div>
+
+					<?php $idx_report = ASC_Indexing_Fixer::get_diagnostic_report(); ?>
+					<div class="asc-box" style="margin:18px 0;border-right:4px solid #16a34a;">
+						<h3 style="margin-top:0;">موتور خودکار رفع صفحات ایندکس‌نشده سرچ کنسول (GSC Indexing Remediator v1.4)</h3>
+						<p style="margin:6px 0;">
+							سپرهای فعال زمان اجرا: <strong>اجبار HTTPS تک‌مرحله‌ای</strong>، <strong>باز کردن /en/ و uploads در robots.txt</strong>، <strong>حذف noindex ناخواسته محصولات و مقالات</strong>، <strong>کنونیکال تمیز روی فیلترها</strong>، <strong>تعمیر اسکیما Product با واحد IRR و برند</strong>، <strong>شتاب‌دهنده LCP موبایل</strong>، <strong>شبکه لینک داخلی بدون صفحه یتیم (FA + EN)</strong> و <strong>ریدایرکت هوشمند خطاهای ۴۰۴</strong>.
+						</p>
+						<p style="margin:6px 0;font-size:13px;color:#334155;">
+							<strong>وضعیت آخرین اجرای خودکار دیتابیس:</strong>
+							<code><?php echo esc_html( (string) $idx_report['remediation_version'] ); ?></code>
+							| <strong>صفحات قابل خزش شناسایی‌شده:</strong>
+							<?php echo (int) $idx_report['crawlable_money_pool']['fa_products_and_posts']; ?> فارسی +
+							<?php echo (int) $idx_report['crawlable_money_pool']['en_products_and_posts']; ?> انگلیسی
+							| <strong>noindex ناخواسته باقی‌مانده:</strong>
+							<?php echo (int) $idx_report['remaining_product_post_ni']; ?>
+						</p>
+						<p style="margin:10px 0 0;">
+							<button type="button" class="button button-primary" id="asc-btn-remediate-indexing">اجرای مجدد اصلاح کامل ایندکس سرچ کنسول + پینگ IndexNow (همراه با Snapshot)</button>
+						</p>
+						<div id="asc-indexing-remediate-result" style="margin-top:8px;"></div>
 					</div>
 
 					<h3>آخرین عملیات ثبت‌شده (Audit Log)</h3>

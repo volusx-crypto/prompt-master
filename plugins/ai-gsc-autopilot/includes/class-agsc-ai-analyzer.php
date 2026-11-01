@@ -155,15 +155,15 @@ class AGSC_AI_Analyzer {
 						),
 					);
 				} else {
-					$diagnosis = 'این آدرس وجود خارجی ندارد و صفحه جایگزین مشابهی در سایت یافت نشد. ثبت ریدایرکت ۳۰۱ به صفحه اصلی (یا کد ۴۱۰ در صورت حذف دائمی) مانع هدررفت بودجه خزش گوگل می‌شود.';
+					$diagnosis = 'این آدرس وجود خارجی ندارد و محصول یا مقاله جایگزین مشابهی در سایت یافت نشد. بازگرداندن کد وضعیت ۴۱۰ (Gone) به گوگل اعلام می‌کند این آدرس دائماً حذف شده و بدون ایجاد خطای Soft-404 از صف خزش خارج می‌شود.';
 					$actions[] = array(
 						'plugin' => 'ai-site-commander',
 						'action' => 'save_redirect',
 						'params' => array(
 							'source_path' => $source_path ? $source_path : $url,
-							'target_url'  => home_url( '/' ),
-							'status_code' => 301,
-							'note'        => 'هدایت ۴۰۴ سرچ کنسول به صفحه اصلی',
+							'target_url'  => '',
+							'status_code' => 410,
+							'note'        => 'حذف دائمی ۴۱۰ برای جلوگیری از Soft-404 در سرچ کنسول',
 						),
 					);
 				}
@@ -208,36 +208,48 @@ class AGSC_AI_Analyzer {
 			case 'low_ctr_high_impressions':
 			case 'missing_seo_metadata':
 			case 'traffic_drop':
+				$url_path   = (string) wp_parse_url( $url, PHP_URL_PATH );
+				$is_en_page = ( '/en' === untrailingslashit( $url_path ) || 0 === strpos( $url_path, '/en/' ) );
 				$base_title = ! empty( $post_context['post_title'] ) ? $post_context['post_title'] : $primary_kw;
-				$opt_title  = mb_substr( trim( $base_title ) . ' | راهنمای کامل و تخصصی ' . $site_name, 0, 60 );
-				$opt_desc   = ! empty( $post_context['excerpt_text'] )
-					? mb_substr( 'بررسی جامع ' . $primary_kw . ' — ' . $post_context['excerpt_text'], 0, 155 )
-					: mb_substr( 'همه‌چیز درباره ' . $base_title . ' همراه با نکات کلیدی، بررسی تخصصی و پاسخ به سوالات متداول در ' . $site_name . '.', 0, 155 );
 
-				$diagnosis = 'این صفحه در نتایج جستجوی گوگل نمایش بالایی دارد اما نرخ کلیک (CTR) آن کمتر از حد استاندارد است. بازنویسی عنوان سئو (Meta Title) با کلمه کلیدی اصلی، توضیحات متای ترغیب‌کننده و افزودن اسکیما JSON-LD نرخ کلیک را به‌طور مستقیم افزایش می‌دهد.';
+				if ( $is_en_page ) {
+					$opt_title = mb_substr( trim( $base_title ) . ' — Authentic Price, Specs & Shipping | Volusx', 0, 65 );
+					$opt_desc  = ! empty( $post_context['excerpt_text'] )
+						? mb_substr( 'Shop authentic ' . $base_title . ' at Volusx — ' . $post_context['excerpt_text'], 0, 155 )
+						: mb_substr( 'Order original ' . $base_title . ' with verified batch authenticity, clinical specs, and cold-chain shipping at Volusx.', 0, 155 );
+				} else {
+					$opt_title = mb_substr( trim( $base_title ) . ' | مشخصات، اصالت و قیمت روز — ' . $site_name, 0, 65 );
+					$opt_desc  = ! empty( $post_context['excerpt_text'] )
+						? mb_substr( 'بررسی تخصصی و خرید ' . $primary_kw . ' — ' . $post_context['excerpt_text'], 0, 155 )
+						: mb_substr( 'مشاهده مشخصات، تضمین اصالت و استعلام قیمت ' . $base_title . ' با ارسال استاندارد در ' . $site_name . '.', 0, 155 );
+				}
+
+				$diagnosis = 'این صفحه در نتایج جستجوی گوگل نمایش بالایی دارد اما نرخ کلیک (CTR) آن کمتر از حد استاندارد است. بازنویسی عنوان سئو (Meta Title) متناسب با زبان صفحه و توضیحات متای ترغیب‌کننده نرخ کلیک را مستقیماً افزایش می‌دهد.';
 
 				if ( $post_id > 0 ) {
-					$schema = array(
-						'@context'      => 'https://schema.org',
-						'@type'         => ( 'product' === ( $post_context['post_type'] ?? '' ) ) ? 'Product' : 'Article',
-						'headline'      => $base_title,
-						'description'   => $opt_desc,
-						'mainEntityOfPage' => array(
-							'@type' => 'WebPage',
-							'@id'   => get_permalink( $post_id ),
-						),
+					$seo_params = array(
+						'post_id'       => $post_id,
+						'meta_title'    => $opt_title,
+						'meta_desc'     => $opt_desc,
+						'focus_keyword' => $primary_kw,
 					);
+					if ( 'product' !== ( $post_context['post_type'] ?? '' ) ) {
+						$seo_params['schema_jsonld'] = array(
+							'@context'         => 'https://schema.org',
+							'@type'            => 'Article',
+							'headline'         => $base_title,
+							'description'      => $opt_desc,
+							'mainEntityOfPage' => array(
+								'@type' => 'WebPage',
+								'@id'   => get_permalink( $post_id ),
+							),
+						);
+					}
 
 					$actions[] = array(
 						'plugin' => 'ai-site-commander',
 						'action' => 'update_seo',
-						'params' => array(
-							'post_id'       => $post_id,
-							'meta_title'    => $opt_title,
-							'meta_desc'     => $opt_desc,
-							'focus_keyword' => $primary_kw,
-							'schema_jsonld' => $schema,
-						),
+						'params' => $seo_params,
 					);
 				}
 				break;
@@ -280,30 +292,42 @@ class AGSC_AI_Analyzer {
 				}
 				break;
 
+			case 'robots_blocked':
+			case 'redirect_page':
+			case 'discovered_not_indexed':
 			case 'crawled_not_indexed':
 			case 'rich_results_error':
 			case 'keyword_cannibalization':
 			default:
-				$diagnosis = 'این صفحه نیازمند تقویت سیگنال‌های ایندکس و ساختار فنی (اسکیما استاندارد، کنونیکال دقیق و لینک‌سازی داخلی از صفحات معتبر سایت) به همراه ارسال مجدد نقشه سایت به گوگل است.';
+				$diagnosis = 'این صفحه در سرچ کنسول ایندکس نشده است. با اجرای موتور جامع اصلاح ایندکس (آزادسازی robots.txt، حذف noindex ناخواسته، تکمیل اسکیمای Product با واحد IRR، تزریق شبکه لینک داخلی هم‌زبان و ارسال IndexNow + نقشه سایت) سیگنال‌های خزش و ایندکس کامل می‌شوند.';
+
+				$actions[] = array(
+					'plugin' => 'ai-site-commander',
+					'action' => 'remediate_gsc_indexing',
+					'params' => array(),
+				);
+
 				if ( $post_id > 0 ) {
 					$base_title = $post_context['post_title'] ?? get_bloginfo( 'name' );
-					$schema     = array(
-						'@context'    => 'https://schema.org',
-						'@type'       => 'Article',
-						'headline'    => $base_title,
-						'url'         => get_permalink( $post_id ),
-						'dateModified'=> gmdate( 'c' ),
+					$seo_params = array(
+						'post_id'       => $post_id,
+						'noindex'       => false,
+						'canonical_url' => get_permalink( $post_id ),
 					);
+					if ( 'product' !== ( $post_context['post_type'] ?? '' ) ) {
+						$seo_params['schema_jsonld'] = array(
+							'@context'     => 'https://schema.org',
+							'@type'        => 'Article',
+							'headline'     => $base_title,
+							'url'          => get_permalink( $post_id ),
+							'dateModified' => gmdate( 'c' ),
+						);
+					}
 
 					$actions[] = array(
 						'plugin' => 'ai-site-commander',
 						'action' => 'update_seo',
-						'params' => array(
-							'post_id'       => $post_id,
-							'noindex'       => false,
-							'canonical_url' => get_permalink( $post_id ),
-							'schema_jsonld' => $schema,
-						),
+						'params' => $seo_params,
 					);
 
 					$donor = self::find_internal_link_donor_post( $post_id, $base_title );
@@ -344,34 +368,44 @@ class AGSC_AI_Analyzer {
 	 * @return array|null
 	 */
 	private static function find_internal_link_donor_post( $exclude_post_id, $keyword ) {
+		$target_url  = get_permalink( absint( $exclude_post_id ) );
+		$target_path = (string) wp_parse_url( (string) $target_url, PHP_URL_PATH );
+		$want_en     = ( '/en' === untrailingslashit( $target_path ) || 0 === strpos( $target_path, '/en/' ) );
+
 		$candidates = get_posts(
 			array(
-				's'              => sanitize_text_field( $keyword ),
-				'post_type'      => 'post',
-				'post_status'    => 'publish',
-				'post__not_in'   => array( absint( $exclude_post_id ) ),
-				'posts_per_page' => 1,
+				's'                => sanitize_text_field( $keyword ),
+				'post_type'        => 'post',
+				'post_status'      => 'publish',
+				'post__not_in'     => array( absint( $exclude_post_id ) ),
+				'posts_per_page'   => 10,
+				'suppress_filters' => true,
 			)
 		);
 
 		if ( empty( $candidates ) ) {
 			$candidates = get_posts(
 				array(
-					'post_type'      => 'post',
-					'post_status'    => 'publish',
-					'post__not_in'   => array( absint( $exclude_post_id ) ),
-					'posts_per_page' => 1,
-					'orderby'        => 'comment_count',
-					'order'          => 'DESC',
+					'post_type'        => 'post',
+					'post_status'      => 'publish',
+					'post__not_in'     => array( absint( $exclude_post_id ) ),
+					'posts_per_page'   => 15,
+					'orderby'          => 'comment_count',
+					'order'            => 'DESC',
+					'suppress_filters' => true,
 				)
 			);
 		}
 
-		if ( ! empty( $candidates ) ) {
-			return array(
-				'id'    => (int) $candidates[0]->ID,
-				'title' => $candidates[0]->post_title,
-			);
+		foreach ( (array) $candidates as $cand ) {
+			$c_path = (string) wp_parse_url( (string) get_permalink( $cand->ID ), PHP_URL_PATH );
+			$is_en  = ( '/en' === untrailingslashit( $c_path ) || 0 === strpos( $c_path, '/en/' ) );
+			if ( $is_en === $want_en ) {
+				return array(
+					'id'    => (int) $cand->ID,
+					'title' => $cand->post_title,
+				);
+			}
 		}
 		return null;
 	}
