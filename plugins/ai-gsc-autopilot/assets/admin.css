@@ -1,0 +1,195 @@
+.agsc-wrap {
+	max-width: 1240px;
+	margin: 20px 0;
+	font-family: Tahoma, "Vazirmatn", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.agsc-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+	background: linear-gradient(135deg, #064e3b 0%, #0f766e 100%);
+	color: #f0fdf4;
+	padding: 22px 26px;
+	border-radius: 12px;
+	margin-bottom: 18px;
+}
+
+.agsc-header h1 {
+	color: #ffffff;
+	margin: 0 0 6px 0;
+	font-size: 22px;
+	font-weight: 700;
+}
+
+.agsc-header p {
+	margin: 0;
+	color: #ccfbf1;
+	font-size: 13px;
+}
+
+.agsc-badge {
+	display: inline-block;
+	font-size: 11px;
+	background: #10b981;
+	color: #022c22;
+	padding: 2px 9px;
+	border-radius: 999px;
+	font-weight: 700;
+	margin-right: 6px;
+}
+
+.agsc-header-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.agsc-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 16px;
+	border-bottom: 1px solid #cbd5e1;
+	padding-bottom: 10px;
+}
+
+.agsc-tab {
+	text-decoration: none;
+	padding: 8px 15px;
+	border-radius: 8px;
+	color: #334155;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	font-weight: 600;
+	font-size: 13px;
+}
+
+.agsc-tab:hover {
+	border-color: #0d9488;
+	color: #0f766e;
+}
+
+.agsc-tab.is-active {
+	background: #0f766e;
+	color: #fff;
+	border-color: #0f766e;
+}
+
+.agsc-panel {
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 12px;
+	padding: 22px;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.agsc-status-strip {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 20px;
+	background: #f0fdfa;
+	border: 1px solid #99f6e4;
+	padding: 12px 16px;
+	border-radius: 8px;
+	margin-bottom: 18px;
+	font-size: 13px;
+	color: #134e4a;
+}
+
+.agsc-grid-4 {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+	gap: 14px;
+	margin-bottom: 24px;
+}
+
+.agsc-stat-card {
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	padding: 16px 18px;
+}
+
+.agsc-card-warn {
+	background: #fffbeb;
+	border-color: #fde68a;
+}
+
+.agsc-card-ok {
+	background: #ecfdf5;
+	border-color: #a7f3d0;
+}
+
+.agsc-stat-title {
+	font-size: 12px;
+	color: #64748b;
+	margin-bottom: 6px;
+}
+
+.agsc-stat-value {
+	font-size: 26px;
+	font-weight: 700;
+	color: #0f172a;
+	margin-bottom: 4px;
+}
+
+.agsc-stat-sub {
+	font-size: 12px;
+	color: #475569;
+}
+
+.agsc-sev {
+	display: inline-block;
+	padding: 3px 9px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.agsc-sev-critical {
+	background: #fee2e2;
+	color: #991b1b;
+}
+
+.agsc-sev-high {
+	background: #ffedd5;
+	color: #9a3412;
+}
+
+.agsc-sev-medium {
+	background: #fef9c3;
+	color: #854d0e;
+}
+
+.agsc-sev-low {
+	background: #e2e8f0;
+	color: #334155;
+}
+
+.agsc-st {
+	display: inline-block;
+	padding: 3px 8px;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 600;
+	background: #f1f5f9;
+}
+
+.agsc-st-fixed {
+	background: #dcfce7;
+	color: #166534;
+}
+
+.agsc-st-analyzed {
+	background: #dbeafe;
+	color: #1e40af;
+}
+
+.agsc-box {
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	padding: 18px;
+}
