@@ -1,0 +1,15 @@
+{
+  "name": "wordpress-gsc-ai-mcp-server",
+  "version": "1.0.0",
+  "description": "Zero-dependency MCP Server connecting AI agents (Claude, Cursor, Windsurf, Claude Code) directly to AI Site Commander & AI Search Console Autopilot WordPress plugins.",
+  "type": "module",
+  "bin": {
+    "wp-gsc-mcp": "./index.mjs"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
