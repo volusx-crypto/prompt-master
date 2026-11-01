@@ -3,7 +3,7 @@
  * Plugin Name: اتوپایلوت هوشمند سرچ کنسول (AI Search Console Autopilot)
  * Plugin URI: https://github.com/volusx-crypto/prompt-master
  * Description: اتصال مستقیم به Google Search Console، دریافت خودکار خطاهای ایندکس، افت ورودی، مشکلات CTR، کنیبالیزیشن و اسکیما، تحلیل ریشه‌ای با هوش مصنوعی و اجرای مستقیم اصلاحات روی سایت از طریق پل «فرمانده هوشمند سایت».
- * Version: 1.0.0
+ * Version: 1.1.0
  * Requires at least: 6.0
  * Requires PHP: 7.4
  * Author: AI Site Suite
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AGSC_VERSION', '1.0.0' );
+define( 'AGSC_VERSION', '1.1.0' );
 define( 'AGSC_PLUGIN_FILE', __FILE__ );
 define( 'AGSC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGSC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

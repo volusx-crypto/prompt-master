@@ -293,6 +293,127 @@ class AGSC_Google_Client {
 	}
 
 	/**
+	 * Normalize a Search Console property string (ensuring trailing slash for URL-prefix properties).
+	 *
+	 * @param string $raw Raw property string.
+	 * @return string
+	 */
+	public static function normalize_property_url( $raw ) {
+		$val = trim( (string) $raw );
+		if ( '' === $val ) {
+			return trailingslashit( home_url( '/' ) );
+		}
+		if ( 0 === stripos( $val, 'sc-domain:' ) ) {
+			$domain = trim( substr( $val, 10 ) );
+			$domain = preg_replace( '#^https?://#i', '', $domain );
+			$domain = trim( $domain, '/' );
+			return 'sc-domain:' . strtolower( $domain );
+		}
+		if ( 0 === stripos( $val, 'http://' ) || 0 === stripos( $val, 'https://' ) ) {
+			return trailingslashit( $val );
+		}
+		return 'sc-domain:' . strtolower( trim( $val, '/' ) );
+	}
+
+	/**
+	 * Auto-discover the exact verified Search Console property matching this site when 403 occurs,
+	 * persist it into agsc_settings, or return an actionable Persian diagnostic error.
+	 *
+	 * @param string $attempted_property Property that triggered 403.
+	 * @return string|WP_Error Discovered valid property URL, or diagnostic WP_Error.
+	 */
+	public static function auto_discover_property( $attempted_property = '' ) {
+		$sites = self::list_sites();
+		if ( is_wp_error( $sites ) ) {
+			return $sites;
+		}
+
+		$entries = isset( $sites['siteEntry'] ) && is_array( $sites['siteEntry'] ) ? $sites['siteEntry'] : array();
+
+		$sa_email = '';
+		$raw_sa   = AGSC_DB::get_secret( 'service_account_json' );
+		if ( '' !== $raw_sa ) {
+			$parsed_sa = json_decode( $raw_sa, true );
+			$sa_email  = $parsed_sa['client_email'] ?? '';
+		}
+
+		if ( empty( $entries ) ) {
+			return new WP_Error(
+				'agsc_no_sites_granted',
+				sprintf(
+					'اکانت سرویس گوگل (%s) هنوز به هیچ سایتی در Search Console اضافه نشده است. وارد سرچ کنسول گوگل شوید ← Settings ← Users and permissions ← دکمه Add user را بزنید و دقیقاً ایمیل بالا را با دسترسی Full اضافه کنید.',
+					$sa_email ? $sa_email : 'Service Account'
+				),
+				array( 'status' => 403 )
+			);
+		}
+
+		$available_urls = array();
+		foreach ( $entries as $entry ) {
+			if ( ! empty( $entry['siteUrl'] ) && ( $entry['permissionLevel'] ?? '' ) !== 'siteUnverifiedUser' ) {
+				$available_urls[] = (string) $entry['siteUrl'];
+			}
+		}
+
+		if ( empty( $available_urls ) ) {
+			return new WP_Error(
+				'agsc_unverified_sites',
+				'هیچ Property تاییدشده‌ای برای این اکانت در سرچ کنسول یافت نشد.',
+				array( 'status' => 403 )
+			);
+		}
+
+		$host = strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+		$root = preg_replace( '/^www\./i', '', $host );
+
+		$candidates_priority = array(
+			'sc-domain:' . $root,
+			'https://www.' . $root . '/',
+			'https://' . $root . '/',
+			'http://www.' . $root . '/',
+			'http://' . $root . '/',
+		);
+
+		$matched = '';
+		foreach ( $candidates_priority as $cand ) {
+			if ( in_array( $cand, $available_urls, true ) ) {
+				$matched = $cand;
+				break;
+			}
+		}
+
+		if ( '' === $matched ) {
+			foreach ( $available_urls as $avail ) {
+				if ( false !== stripos( $avail, $root ) ) {
+					$matched = $avail;
+					break;
+				}
+			}
+		}
+
+		if ( '' === $matched && 1 === count( $available_urls ) ) {
+			$matched = $available_urls[0];
+		}
+
+		if ( '' !== $matched && $matched !== $attempted_property ) {
+			$settings                 = AGSC_DB::get_settings();
+			$settings['property_url'] = $matched;
+			update_option( 'agsc_settings', $settings );
+			return $matched;
+		}
+
+		return new WP_Error(
+			'agsc_property_mismatch',
+			sprintf(
+				'فرمت آدرس Property (%s) با سرچ کنسول شما مطابقت ندارد. لیست دقیق Propertyهای مجاز شما در گوگل عبارت است از: [ %s ] — یکی از این موارد را عیناً در تنظیمات قرار دهید.',
+				$attempted_property,
+				implode( ' ، ', $available_urls )
+			),
+			array( 'status' => 403 )
+		);
+	}
+
+	/**
 	 * List all verified Search Console properties accessible to the authenticated identity.
 	 *
 	 * @return array|WP_Error
@@ -302,7 +423,7 @@ class AGSC_Google_Client {
 	}
 
 	/**
-	 * Query Search Analytics data for the configured property.
+	 * Query Search Analytics data for the configured property (with automatic property normalization & 403 recovery).
 	 *
 	 * @param string $start_date YYYY-MM-DD.
 	 * @param string $end_date   YYYY-MM-DD.
@@ -313,20 +434,27 @@ class AGSC_Google_Client {
 	 */
 	public static function query_search_analytics( $start_date, $end_date, array $dimensions = array( 'page' ), $row_limit = 250, $property = '' ) {
 		$settings = AGSC_DB::get_settings();
-		$site_url = '' !== $property ? $property : $settings['property_url'];
-		$encoded  = rawurlencode( $site_url );
-		$url      = "https://www.googleapis.com/webmasters/v3/sites/{$encoded}/searchAnalytics/query";
-
-		return self::request(
-			'POST',
-			$url,
-			array(
-				'startDate'  => $start_date,
-				'endDate'    => $end_date,
-				'dimensions' => array_values( $dimensions ),
-				'rowLimit'   => min( 5000, max( 1, absint( $row_limit ) ) ),
-			)
+		$site_url = self::normalize_property_url( '' !== $property ? $property : $settings['property_url'] );
+		$payload  = array(
+			'startDate'  => $start_date,
+			'endDate'    => $end_date,
+			'dimensions' => array_values( $dimensions ),
+			'rowLimit'   => min( 5000, max( 1, absint( $row_limit ) ) ),
 		);
+
+		$encoded = rawurlencode( $site_url );
+		$res     = self::request( 'POST', "https://www.googleapis.com/webmasters/v3/sites/{$encoded}/searchAnalytics/query", $payload );
+
+		if ( is_wp_error( $res ) && false !== strpos( $res->get_error_message(), '(403)' ) && '' === $property ) {
+			$discovered = self::auto_discover_property( $site_url );
+			if ( is_wp_error( $discovered ) ) {
+				return $discovered;
+			}
+			$encoded2 = rawurlencode( $discovered );
+			return self::request( 'POST', "https://www.googleapis.com/webmasters/v3/sites/{$encoded2}/searchAnalytics/query", $payload );
+		}
+
+		return $res;
 	}
 
 	/**
@@ -338,9 +466,9 @@ class AGSC_Google_Client {
 	 */
 	public static function inspect_url( $inspection_url, $property = '' ) {
 		$settings = AGSC_DB::get_settings();
-		$site_url = '' !== $property ? $property : $settings['property_url'];
+		$site_url = self::normalize_property_url( '' !== $property ? $property : $settings['property_url'] );
 
-		return self::request(
+		$res = self::request(
 			'POST',
 			'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
 			array(
@@ -349,6 +477,24 @@ class AGSC_Google_Client {
 				'languageCode'  => 'fa-IR',
 			)
 		);
+
+		if ( is_wp_error( $res ) && false !== strpos( $res->get_error_message(), '(403)' ) && '' === $property ) {
+			$discovered = self::auto_discover_property( $site_url );
+			if ( is_wp_error( $discovered ) ) {
+				return $discovered;
+			}
+			return self::request(
+				'POST',
+				'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect',
+				array(
+					'inspectionUrl' => esc_url_raw( $inspection_url ),
+					'siteUrl'       => $discovered,
+					'languageCode'  => 'fa-IR',
+				)
+			);
+		}
+
+		return $res;
 	}
 
 	/**
@@ -358,7 +504,8 @@ class AGSC_Google_Client {
 	 */
 	public static function list_sitemaps() {
 		$settings = AGSC_DB::get_settings();
-		$encoded  = rawurlencode( $settings['property_url'] );
+		$site_url = self::normalize_property_url( $settings['property_url'] );
+		$encoded  = rawurlencode( $site_url );
 		return self::request( 'GET', "https://www.googleapis.com/webmasters/v3/sites/{$encoded}/sitemaps" );
 	}
 
@@ -373,7 +520,8 @@ class AGSC_Google_Client {
 			$sitemap_url = home_url( '/sitemap_index.xml' );
 		}
 		$settings     = AGSC_DB::get_settings();
-		$encoded_site = rawurlencode( $settings['property_url'] );
+		$site_url     = self::normalize_property_url( $settings['property_url'] );
+		$encoded_site = rawurlencode( $site_url );
 		$encoded_feed = rawurlencode( esc_url_raw( $sitemap_url ) );
 
 		$res = self::request( 'PUT', "https://www.googleapis.com/webmasters/v3/sites/{$encoded_site}/sitemaps/{$encoded_feed}" );

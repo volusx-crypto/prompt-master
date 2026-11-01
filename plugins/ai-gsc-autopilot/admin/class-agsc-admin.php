@@ -116,7 +116,7 @@ class AGSC_Admin {
 		$current = AGSC_DB::get_settings();
 		$updated = array(
 			'auth_method'           => ( isset( $_POST['auth_method'] ) && 'oauth2' === $_POST['auth_method'] ) ? 'oauth2' : 'service_account',
-			'property_url'          => isset( $_POST['property_url'] ) ? sanitize_text_field( wp_unslash( $_POST['property_url'] ) ) : home_url( '/' ),
+			'property_url'          => isset( $_POST['property_url'] ) ? AGSC_Google_Client::normalize_property_url( sanitize_text_field( wp_unslash( $_POST['property_url'] ) ) ) : home_url( '/' ),
 			'oauth_client_id'       => isset( $_POST['oauth_client_id'] ) ? sanitize_text_field( wp_unslash( $_POST['oauth_client_id'] ) ) : '',
 			'ai_provider'           => isset( $_POST['ai_provider'] ) && in_array( $_POST['ai_provider'], array( 'openai', 'anthropic', 'gemini', 'custom' ), true ) ? sanitize_key( wp_unslash( $_POST['ai_provider'] ) ) : 'openai',
 			'ai_model'              => isset( $_POST['ai_model'] ) ? sanitize_text_field( wp_unslash( $_POST['ai_model'] ) ) : 'gpt-4o',
