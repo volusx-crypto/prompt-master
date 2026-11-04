@@ -13,11 +13,23 @@ defined( 'ABSPATH' ) || exit;
 class PHM_Detector {
 
 	/**
+	 * Transient key for the plugin-name cache.
+	 */
+	const NAME_CACHE_KEY = 'phm_plugin_names';
+
+	/**
 	 * Cached detection result.
 	 *
 	 * @var array|null
 	 */
 	private static $state = null;
+
+	/**
+	 * Per-request plugin name cache.
+	 *
+	 * @var array
+	 */
+	private static $names = array();
 
 	/**
 	 * Active plugin basenames (including network activated ones).
@@ -44,15 +56,46 @@ class PHM_Detector {
 	 * @return string
 	 */
 	public static function plugin_name( $plugin_file ) {
-		if ( ! function_exists( 'get_plugin_data' ) ) {
-			require_once ABSPATH . 'wp-admin/includes/plugin.php';
+		$plugin_file = (string) $plugin_file;
+
+		if ( '' === $plugin_file ) {
+			return '';
 		}
+
+		if ( isset( self::$names[ $plugin_file ] ) ) {
+			return self::$names[ $plugin_file ];
+		}
+
+		$cache = get_transient( self::NAME_CACHE_KEY );
+		$cache = is_array( $cache ) ? $cache : array();
+
+		if ( isset( $cache[ $plugin_file ] ) ) {
+			self::$names[ $plugin_file ] = $cache[ $plugin_file ];
+			return $cache[ $plugin_file ];
+		}
+
 		$path = WP_PLUGIN_DIR . '/' . $plugin_file;
-		if ( ! file_exists( $path ) ) {
-			return $plugin_file;
+		$name = $plugin_file;
+
+		if ( file_exists( $path ) ) {
+			if ( ! function_exists( 'get_plugin_data' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/plugin.php';
+			}
+			$data = get_plugin_data( $path, false, false );
+			if ( ! empty( $data['Name'] ) ) {
+				$name = $data['Name'];
+			}
 		}
-		$data = get_plugin_data( $path, false, false );
-		return ! empty( $data['Name'] ) ? $data['Name'] : $plugin_file;
+
+		self::$names[ $plugin_file ] = $name;
+
+		$cache[ $plugin_file ] = $name;
+		if ( count( $cache ) > 300 ) {
+			$cache = array_slice( $cache, -300, null, true );
+		}
+		set_transient( self::NAME_CACHE_KEY, $cache, DAY_IN_SECONDS );
+
+		return $name;
 	}
 
 	/**
@@ -251,6 +294,9 @@ class PHM_Detector {
 	 * @return void
 	 */
 	public static function flush() {
-		self::$state = null;
+		self::$state   = null;
+		self::$names   = array();
+		delete_transient( self::NAME_CACHE_KEY );
+		PHM_Planner::flush();
 	}
 }

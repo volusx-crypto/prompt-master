@@ -58,6 +58,7 @@ class PHM_Profile {
 	public static function flush() {
 		self::$profile = null;
 		delete_transient( self::CACHE_KEY );
+		PHM_Planner::flush();
 	}
 
 	/**

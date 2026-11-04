@@ -84,6 +84,7 @@ class PHM_Settings {
 		$values   = is_array( $values ) ? $values : array();
 		$settings = array_merge( $settings, $values );
 		update_option( PHM_OPTION, $settings );
+		PHM_Planner::flush();
 		return $settings;
 	}
 
@@ -176,6 +177,48 @@ class PHM_Settings {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Make sure the large bookkeeping options are never autoloaded.
+	 *
+	 * Autoloaded options are read on every single request; the change log and
+	 * the backup snapshots can grow to hundreds of kilobytes, so they must stay
+	 * out of `alloptions`.
+	 *
+	 * @return void
+	 */
+	public static function harden_autoload() {
+		$options = array(
+			PHM_LOG_OPTION,
+			PHM_BACKUP_OPTION,
+			'phm_seen_plugins',
+			'phm_last_scan',
+			'phm_new_plugins',
+		);
+
+		if ( function_exists( 'wp_set_option_autoload_values' ) ) {
+			$map = array();
+			foreach ( $options as $option ) {
+				if ( null !== get_option( $option, null ) ) {
+					$map[ $option ] = false;
+				}
+			}
+			if ( ! empty( $map ) ) {
+				wp_set_option_autoload_values( $map );
+			}
+			return;
+		}
+
+		// WordPress < 6.6: recreate the option so it is stored with autoload=no.
+		foreach ( $options as $option ) {
+			$value = get_option( $option, null );
+			if ( null === $value ) {
+				continue;
+			}
+			delete_option( $option );
+			add_option( $option, $value, '', false );
+		}
 	}
 
 	/**

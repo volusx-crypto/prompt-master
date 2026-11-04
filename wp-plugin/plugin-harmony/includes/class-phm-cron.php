@@ -26,7 +26,12 @@ class PHM_Cron {
 	public static function hooks() {
 		add_action( self::DAILY_HOOK, array( __CLASS__, 'run_scan' ) );
 		add_action( self::AUTO_HOOK, array( __CLASS__, 'run_auto_review' ) );
-		add_action( 'init', array( __CLASS__, 'ensure_schedule' ) );
+
+		// Re-creating the schedule only needs to be checked inside wp-admin,
+		// so a visitor never pays for it.
+		if ( is_admin() ) {
+			add_action( 'admin_init', array( __CLASS__, 'ensure_schedule' ) );
+		}
 	}
 
 	/**

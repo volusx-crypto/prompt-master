@@ -40,11 +40,28 @@ class PHM_Plugin {
 	public function boot() {
 		load_plugin_textdomain( 'plugin-harmony', false, dirname( plugin_basename( PHM_FILE ) ) . '/languages' );
 
-		PHM_Admin::hooks();
+		// Plugin activation, updates and cron only ever happen in wp-admin,
+		// wp-cron.php or WP-CLI. A visitor request is therefore completely
+		// free: no hook registered, no query, no extra class loaded.
+		$is_backend = is_admin()
+			|| ( defined( 'DOING_CRON' ) && DOING_CRON )
+			|| ( defined( 'WP_CLI' ) && WP_CLI );
+
+		if ( ! $is_backend ) {
+			return;
+		}
+
 		PHM_Cron::hooks();
 
 		add_action( 'activated_plugin', array( $this, 'on_activated' ), 10, 2 );
 		add_action( 'upgrader_process_complete', array( $this, 'on_upgrader' ), 10, 2 );
+
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		PHM_Admin::hooks();
+
 		add_action( 'admin_init', array( $this, 'maybe_review' ) );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( PHM_FILE ), array( $this, 'action_links' ) );
@@ -62,6 +79,7 @@ class PHM_Plugin {
 		}
 
 		PHM_Cron::schedule();
+		PHM_Settings::harden_autoload();
 		PHM_Profile::flush();
 		PHM_Detector::flush();
 

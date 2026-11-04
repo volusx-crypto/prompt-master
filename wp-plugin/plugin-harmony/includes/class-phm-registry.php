@@ -195,6 +195,7 @@ class PHM_Registry {
 	 */
 	public static function flush() {
 		self::$recipes = null;
+		PHM_Planner::flush();
 	}
 
 	/**

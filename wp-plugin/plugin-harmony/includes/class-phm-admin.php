@@ -281,6 +281,7 @@ class PHM_Admin {
 
 		PHM_Settings::update( array( 'custom_rules' => $rules ) );
 		PHM_Registry::flush();
+		PHM_Planner::flush();
 
 		self::redirect(
 			array(
@@ -313,6 +314,7 @@ class PHM_Admin {
 
 		PHM_Settings::update( array( 'custom_rules' => $kept ) );
 		PHM_Registry::flush();
+		PHM_Planner::flush();
 
 		self::redirect(
 			array(
@@ -333,6 +335,8 @@ class PHM_Admin {
 		PHM_Profile::flush();
 		PHM_Detector::flush();
 		PHM_Registry::flush();
+		PHM_Planner::flush();
+		delete_transient( PHM_Detector::NAME_CACHE_KEY );
 
 		self::redirect(
 			array(

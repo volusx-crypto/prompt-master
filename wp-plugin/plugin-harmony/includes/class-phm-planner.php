@@ -16,6 +16,22 @@ defined( 'ABSPATH' ) || exit;
 class PHM_Planner {
 
 	/**
+	 * Plan cache for the current request (building a plan reads many options).
+	 *
+	 * @var array
+	 */
+	private static $cache = array();
+
+	/**
+	 * Drop the cached plan.
+	 *
+	 * @return void
+	 */
+	public static function flush() {
+		self::$cache = array();
+	}
+
+	/**
 	 * Build the plan.
 	 *
 	 * @param array $args {
@@ -30,6 +46,12 @@ class PHM_Planner {
 				'only_recipe' => '',
 			)
 		);
+
+		$cache_key = 'plan|' . $args['only_recipe'];
+
+		if ( isset( self::$cache[ $cache_key ] ) ) {
+			return self::$cache[ $cache_key ];
+		}
 
 		$settings = PHM_Settings::all();
 		$recipes  = PHM_Registry::all();
@@ -130,6 +152,8 @@ class PHM_Planner {
 		$plan['changes'] = apply_filters( 'phm_plan_changes', $plan['changes'], $context );
 
 		$plan['stats'] = self::stats( $plan );
+
+		self::$cache[ $cache_key ] = $plan;
 
 		return $plan;
 	}

@@ -2,9 +2,9 @@
 Contributors: plugin-harmony
 Tags: plugin settings, site health, seo, cache, configuration, persian
 Requires at least: 5.8
-Tested up to: 6.7
+Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,9 +38,33 @@ WordPress has no standard API that exposes "the settings of every plugin", and e
 
 == Installation ==
 
+Install it like any other plugin — there is nothing to configure by hand.
+
+= From the Plugins screen (recommended) =
+1. Go to **Plugins → Add New Plugin → Upload Plugin**.
+2. Choose `plugin-harmony.zip` and press **Install Now**.
+3. Press **Activate**. The menu item **هماهنگ‌ساز افزونه‌ها** appears in the sidebar.
+4. Open it, review the plan, then either apply selected items or switch the mode to automatic.
+
+= Manually =
 1. Upload the `plugin-harmony` folder to `/wp-content/plugins/`.
 2. Activate it from the Plugins screen.
-3. Open **هماهنگ‌ساز افزونه‌ها** in the admin menu, review the plan, then either apply selected items or switch the mode to automatic.
+
+= WP-CLI =
+`wp plugin install plugin-harmony.zip --activate`
+
+== Performance ==
+
+The plugin is built to stay invisible on the front end:
+
+* **Zero cost for visitors.** On a front-end request the plugin registers no hooks, runs no query and loads only two small files. It returns before any planning, detection or registry code is even loaded.
+* **Lazy class loading.** Every class is autoloaded on demand — the planner, the admin UI, the recipe library and the applier are never parsed unless they are used.
+* **Plan is built once per request** and memoised; a second call in the same request costs nothing.
+* **Cached reads.** The site profile is cached for 5 minutes, plugin display names for a day.
+* **No autoloaded bloat.** The change log, the snapshots and the scan bookkeeping are stored with `autoload = no`, so they are never read on normal page loads.
+* **Bounded storage.** 100 log batches, at most 300 rows per batch, and the newest 20 snapshots.
+* **No front-end assets.** CSS/JS are enqueued only on the plugin's own admin screen.
+* **One cron event per day.** Nothing else is scheduled.
 
 == Frequently Asked Questions ==
 
@@ -54,6 +78,12 @@ Yes, through the "قواعد سفارشی" tab: pick the plugin, enter the optio
 The stored snapshot of every option in that batch is written back, and the batch is flagged as undone in the history.
 
 == Changelog ==
+
+= 1.1.0 =
+* Performance: front-end requests now register zero hooks and run zero queries; classes are autoloaded on demand, the plan is memoised per request, and the profile / plugin-name lookups are cached.
+* Performance: bookkeeping options are stored with `autoload = no` and the log is bounded (100 batches × 300 rows).
+* Packaging: `build.sh` now verifies the zip (single folder, valid header, no BOM, no dev files) so the package always installs from **Plugins → Add New → Upload Plugin**.
+* Guarded against PHP < 7.4 instead of throwing a fatal error.
 
 = 1.0.0 =
 * First release: profiling, detection, capability map, conflict report, safe applier with snapshots and rollback, activation hook, daily scan, WP-CLI, custom rules.

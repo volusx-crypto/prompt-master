@@ -13,6 +13,18 @@ defined( 'ABSPATH' ) || exit;
 class PHM_CLI {
 
 	/**
+	 * Register the WP-CLI command (only called in a CLI context).
+	 *
+	 * @return void
+	 */
+	public static function register() {
+		if ( ! class_exists( 'WP_CLI' ) ) {
+			return;
+		}
+		WP_CLI::add_command( 'harmony', __CLASS__ );
+	}
+
+	/**
 	 * Report the site profile, plugin families and conflicts.
 	 *
 	 * ## EXAMPLES
@@ -225,8 +237,4 @@ class PHM_CLI {
 
 		\WP_CLI\Utils\format_items( 'table', $rows, array( 'batch', 'time', 'trigger', 'changes', 'undone' ) );
 	}
-}
-
-if ( defined( 'WP_CLI' ) && WP_CLI ) {
-	WP_CLI::add_command( 'harmony', 'PHM_CLI' );
 }

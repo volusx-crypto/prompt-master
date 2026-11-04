@@ -198,17 +198,8 @@ class PHM_Applier {
 			return new WP_Error( 'phm_noop', 'هیچ تغییری لازم نبود؛ تنظیمات از قبل درست بودند.' );
 		}
 
-		self::store_batch( $batch_id, $applied, $snapshots, $args, $mode );
-
-		/**
-		 * Fires after a batch of settings was written.
-		 *
-		 * @param string $batch_id Batch id.
-		 * @param array  $applied  Applied items.
-		 * @param array  $args     Run arguments.
-		 */
-		do_action( 'phm_after_apply', $batch_id, $applied, $args );
-
+		// Count first, then store a bounded number of items so the log option
+		// can never grow without limit.
 		$counts = array(
 			'applied'  => 0,
 			'rejected' => 0,
@@ -220,6 +211,27 @@ class PHM_Applier {
 				$counts[ $item['status'] ]++;
 			}
 		}
+
+		$max_items = (int) apply_filters( 'phm_max_log_items_per_batch', 300 );
+		if ( $max_items > 0 && count( $applied ) > $max_items ) {
+			$stored_items = array_slice( $applied, 0, $max_items );
+		} else {
+			$stored_items = $applied;
+		}
+
+		self::store_batch( $batch_id, $stored_items, $snapshots, $args, $mode );
+
+		// The plan is stale now; a later build in this request must not reuse it.
+		PHM_Planner::flush();
+
+		/**
+		 * Fires after a batch of settings was written.
+		 *
+		 * @param string $batch_id Batch id.
+		 * @param array  $applied  Applied items.
+		 * @param array  $args     Run arguments.
+		 */
+		do_action( 'phm_after_apply', $batch_id, $applied, $args );
 
 		return array(
 			'batch'    => $batch_id,
@@ -353,6 +365,8 @@ class PHM_Applier {
 
 		unset( $backups[ $batch_id ] );
 		update_option( PHM_BACKUP_OPTION, $backups, false );
+
+		PHM_Planner::flush();
 
 		return $restored;
 	}
